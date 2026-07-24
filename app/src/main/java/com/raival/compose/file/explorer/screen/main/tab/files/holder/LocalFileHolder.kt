@@ -327,7 +327,7 @@ class LocalFileHolder(val file: File) : ContentHolder() {
 
     private fun createUri() = FileProvider.getUriForFile(
         globalClass,
-        "com.raival.compose.file.explorer.provider",
+        "${globalClass.packageName}.provider",
         file
     )
 
