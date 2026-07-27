@@ -14,6 +14,7 @@ import com.raival.compose.file.explorer.R
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.RootFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.files.holder.ShizukuFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.StorageDevice
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileSortingPrefs
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.SortingMethod.SORT_BY_DATE
@@ -23,6 +24,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.misc.SortingMethod
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.StorageDeviceType.EXTERNAL_STORAGE
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.StorageDeviceType.INTERNAL_STORAGE
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.StorageDeviceType.ROOT
+import com.raival.compose.file.explorer.screen.main.tab.files.misc.StorageDeviceType.SHIZUKU
 import com.raival.compose.file.explorer.screen.main.tab.home.holder.RecentFile
 import java.io.File
 
@@ -77,6 +79,55 @@ object StorageProvider {
             externalUsedSize,
             ROOT
         )
+    }
+
+    fun getShizukuStorageDevices(context: Context): List<StorageDevice> {
+        if (!globalClass.shizukuManager.isAccessible()) return emptyList()
+        val devices = mutableListOf<StorageDevice>()
+
+        val androidDataDir = File("/sdcard/Android/data")
+        if (androidDataDir.exists()) {
+            val totalSize = try {
+                val stat = StatFs(androidDataDir.absolutePath)
+                stat.totalBytes
+            } catch (_: Exception) { 0L }
+            val usedSize = try {
+                val stat = StatFs(androidDataDir.absolutePath)
+                stat.totalBytes - stat.availableBytes
+            } catch (_: Exception) { 0L }
+            devices.add(
+                StorageDevice(
+                    ShizukuFileHolder("/sdcard/Android/data/"),
+                    context.getString(R.string.browse_android_data),
+                    totalSize,
+                    usedSize,
+                    SHIZUKU
+                )
+            )
+        }
+
+        val dataDataDir = File("/data/data")
+        if (dataDataDir.exists()) {
+            val totalSize = try {
+                val stat = StatFs(dataDataDir.absolutePath)
+                stat.totalBytes
+            } catch (_: Exception) { 0L }
+            val usedSize = try {
+                val stat = StatFs(dataDataDir.absolutePath)
+                stat.totalBytes - stat.availableBytes
+            } catch (_: Exception) { 0L }
+            devices.add(
+                StorageDevice(
+                    ShizukuFileHolder("/data/data/"),
+                    context.getString(R.string.browse_data_data),
+                    totalSize,
+                    usedSize,
+                    SHIZUKU
+                )
+            )
+        }
+
+        return devices
     }
 
     fun getPrimaryInternalStorage(context: Context): StorageDevice {

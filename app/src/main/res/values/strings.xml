@@ -453,4 +453,15 @@
     <string name="close_tab_on_back_nav">Back navigation to close tabs</string>
     <string name="remember_last_session">Remember last session</string>
     <string name="confirm_before_exit">Confirm before exiting the app</string>
+    <string name="enable_shizuku_access">Enable Shizuku access</string>
+    <string name="shizuku_access_description">Grant Shizuku access to browse restricted directories like Android/data</string>
+    <string name="shizuku_not_installed">Shizuku is not installed</string>
+    <string name="shizuku_install_prompt">Install Shizuku from GitHub to access restricted directories</string>
+    <string name="shizuku_permission_required">Shizuku permission is required</string>
+    <string name="shizuku_granted">Shizuku access enabled</string>
+    <string name="shizuku_denied">Shizuku access disabled</string>
+    <string name="browse_android_data">Browse Android/data</string>
+    <string name="browse_data_data">Browse data/data</string>
+    <string name="shizuku_v11_required">Shizuku v11+ is required</string>
+    <string name="shizuku_access">Shizuku Access</string>
 </resources>

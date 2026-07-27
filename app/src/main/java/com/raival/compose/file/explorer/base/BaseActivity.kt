@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import androidx.activity.compose.setContent
@@ -39,6 +40,7 @@ import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.R
 import com.raival.compose.file.explorer.common.ui.SafeSurface
 import com.raival.compose.file.explorer.theme.FileExplorerTheme
+import rikka.shizuku.Shizuku
 
 abstract class BaseActivity : AppCompatActivity() {
 
@@ -53,7 +55,25 @@ abstract class BaseActivity : AppCompatActivity() {
             }
         }
 
+    private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+        globalClass.shizukuManager.onPermissionResult(requestCode, grantResult)
+    }
+
     open fun onPermissionGranted() {}
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        try {
+            Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
+        } catch (_: Exception) { }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+        } catch (_: Exception) { }
+    }
 
     protected fun checkPermissions() {
         if (canAccessStorage()) {

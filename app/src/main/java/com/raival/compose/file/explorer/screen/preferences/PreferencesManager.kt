@@ -172,6 +172,12 @@ class PreferencesManager {
         getPreferencesKey = { booleanPreferencesKey(it) }
     )
 
+    var shizukuEnabled by prefMutableState(
+        keyName = "shizuku_enabled",
+        defaultValue = false,
+        getPreferencesKey = { booleanPreferencesKey(it) }
+    )
+
     var defaultOpeningMethods by prefMutableState(
         keyName = "defaultOpeningMethods",
         defaultValue = DefaultOpeningMethods().toJson(),

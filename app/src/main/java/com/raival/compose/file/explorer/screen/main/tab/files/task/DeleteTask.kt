@@ -7,6 +7,7 @@ import com.raival.compose.file.explorer.common.emptyString
 import com.raival.compose.file.explorer.common.toFormattedDate
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.files.holder.ShizukuFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
 import com.reandroid.archive.ZipAlign
@@ -114,6 +115,7 @@ class DeleteTask(
         when (sampleContent) {
             is LocalFileHolder -> handleLocalFileDeletion()
             is ZipFileHolder -> handleZipFileDeletion()
+            is ShizukuFileHolder -> handleShizukuFileDeletion()
             else -> {
                 markAsFailed(globalClass.getString(R.string.unsupported_source_type))
                 return
@@ -196,7 +198,7 @@ class DeleteTask(
     private suspend fun handleZipFileDeletion() {
         val zipFileHolder = sourceContent.first() as ZipFileHolder
         val sourceZipFile = zipFileHolder.zipTree.source.file
-        var tempFile: File? = null
+        var tempFile: java.io.File? = null
 
         try {
             // Check abortion before processing
@@ -350,6 +352,43 @@ class DeleteTask(
             return
         }
         run(parameters!!)
+    }
+
+    private suspend fun handleShizukuFileDeletion() {
+        pendingContent.forEachIndexed { index, itemToDelete ->
+            if (aborted) {
+                markAsAborted()
+                return
+            }
+
+            if (itemToDelete.status == TaskContentStatus.PENDING) {
+                val progressPercent = 0.1f + (0.8f * (index.toFloat() / pendingContent.size))
+
+                progressMonitor.apply {
+                    contentName = itemToDelete.source.displayName
+                    remainingContent = pendingContent.size - (index + 1)
+                    progress = progressPercent
+                }
+
+                try {
+                    val shizukuFile = itemToDelete.source as ShizukuFileHolder
+                    if (shizukuFile.deleteShizukuFile()) {
+                        itemToDelete.status = TaskContentStatus.SUCCESS
+                    } else {
+                        throw Exception(globalClass.getString(R.string.failed_to_delete_file))
+                    }
+                } catch (e: Exception) {
+                    logger.logError(e)
+                    markAsFailed(
+                        globalClass.resources.getString(
+                            R.string.task_summary_failed,
+                            e.message ?: emptyString
+                        )
+                    )
+                    return
+                }
+            }
+        }
     }
 
     override fun setParameters(params: TaskParameters) {

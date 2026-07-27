@@ -18,7 +18,7 @@ class RootFileHolder : ContentHolder() {
     )
 
     var contentsCount = ContentCount()
-    val content = arrayListOf<LocalFileHolder>()
+    val content = arrayListOf<ContentHolder>()
 
     override val uniquePath = rootDir
     override val displayName = globalClass.getString(R.string.root_dir)
@@ -31,12 +31,22 @@ class RootFileHolder : ContentHolder() {
     override val canWrite = false
 
     override suspend fun listContent(): ArrayList<out ContentHolder> {
-        val content = ArrayList<LocalFileHolder>()
+        val content = ArrayList<ContentHolder>()
 
         virtualRootContent.forEach { item ->
             File(item).let { file ->
                 if (file.exists()) {
                     content.add(LocalFileHolder(file))
+                }
+            }
+        }
+
+        if (globalClass.shizukuManager.isAccessible()) {
+            val androidDataDir = File("/sdcard/Android/data")
+            if (androidDataDir.exists() && !androidDataDir.canRead()) {
+                val shizukuEntry = ShizukuFileHolder("/sdcard/Android/data/")
+                if (shizukuEntry.runShellCommand("ls -1 /sdcard/Android/data/ 2>/dev/null") != null) {
+                    content.add(shizukuEntry)
                 }
             }
         }

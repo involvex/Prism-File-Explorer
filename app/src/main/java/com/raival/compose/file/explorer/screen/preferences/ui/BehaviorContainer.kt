@@ -103,4 +103,11 @@ fun BehaviorContainer() {
             onSwitchChange = { prefs.useBuiltInViewer = it }
         )
     }
+
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        thickness = 3.dp
+    )
+
+    ShizukuContainer()
 }

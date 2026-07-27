@@ -27,3 +27,8 @@
 -keep class com.android.apksig.** { *; }
 
 -keepnames interface * { *; }
+
+# Shizuku
+-keep class rikka.shizuku.** { *; }
+-keep class moe.shizuku.** { *; }
+-dontwarn rikka.shizuku.**

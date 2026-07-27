@@ -96,6 +96,7 @@ class App : Application(), coil3.SingletonImageLoader.Factory {
     val taskManager: TaskManager by lazy { TaskManager() }
     val zipManager: ZipManager by lazy { ZipManager() }
     val searchManager: SearchManager by lazy { SearchManager() }
+    val shizukuManager: ShizukuManager by lazy { ShizukuManager() }
 
     override fun onCreate() {
         super.onCreate()

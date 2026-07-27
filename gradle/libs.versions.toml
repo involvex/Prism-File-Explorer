@@ -35,6 +35,7 @@ profileinstaller = "1.4.1"
 reorderable = "2.5.1"
 uiToolingPreviewAndroid = "1.9.0"
 zoomableImageCoil3 = "0.16.0"
+shizuku = "13.1.5"
 
 [libraries]
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
@@ -80,6 +81,8 @@ androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profi
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 androidx-ui-tooling-preview-android = { group = "androidx.compose.ui", name = "ui-tooling-preview-android", version.ref = "uiToolingPreviewAndroid" }
 zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "zoomableImageCoil3" }
+shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
+shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

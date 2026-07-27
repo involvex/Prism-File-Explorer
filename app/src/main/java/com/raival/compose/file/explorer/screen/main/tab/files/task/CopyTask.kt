@@ -11,6 +11,7 @@ import com.raival.compose.file.explorer.common.toFormattedDate
 import com.raival.compose.file.explorer.common.toRelativeString
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.files.holder.ShizukuFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
 import com.reandroid.archive.ZipAlign
@@ -166,6 +167,14 @@ class CopyTask(
             }
         }
 
+        // Prevent copying Shizuku directory into itself
+        if (firstSource is ShizukuFileHolder && destHolder is ShizukuFileHolder) {
+            if (firstSource.path == destHolder.path) {
+                markAsFailed(globalClass.resources.getString(R.string.task_summary_invalid_dest))
+                return false
+            }
+        }
+
         return true
     }
 
@@ -186,6 +195,15 @@ class CopyTask(
 
             sample is ZipFileHolder && destHolder is ZipFileHolder ->
                 copyZipFilesToZip(sourcePath, destHolder)
+
+            sample is ShizukuFileHolder && destHolder is LocalFileHolder ->
+                copyShizukuFilesToLocal(sourcePath, destHolder)
+
+            sample is ShizukuFileHolder && destHolder is ZipFileHolder ->
+                copyShizukuFilesToZip(sourcePath, destHolder)
+
+            sample is LocalFileHolder && destHolder is ShizukuFileHolder ->
+                copyLocalFilesToShizuku(sourcePath, destHolder)
 
             else ->
                 throw IllegalStateException(globalClass.getString(R.string.unsupported_source_destination_combination))
@@ -295,6 +313,28 @@ class CopyTask(
         when (val sample = sourceFiles.first()) {
             is LocalFileHolder -> deleteLocalSources()
             is ZipFileHolder -> deleteZipSources(sample)
+            is ShizukuFileHolder -> deleteShizukuSources(sample)
+        }
+    }
+
+    private fun deleteShizukuSources(sample: ShizukuFileHolder) {
+        val successfulItems = pendingFiles.filter { it.status == TaskContentStatus.SUCCESS }
+
+        successfulItems.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            progressMonitor.apply {
+                remainingContent = successfulItems.size - (index + 1)
+                contentName = item.content.displayName
+                progress = (index + 1f) / successfulItems.size
+            }
+
+            runBlocking {
+                (item.content as ShizukuFileHolder).deleteShizukuFile()
+            }
         }
     }
 
@@ -768,6 +808,265 @@ class CopyTask(
         }
     }
 
+    private fun copyShizukuFilesToLocal(sourcePath: String, destinationHolder: LocalFileHolder) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        pendingFiles.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            if (item.status isNot TaskContentStatus.PENDING
+                && item.status isNot TaskContentStatus.REPLACE
+                && item.status isNot TaskContentStatus.CONFLICT
+            ) {
+                return@forEachIndexed
+            }
+
+            val sourceHolder = item.content as ShizukuFileHolder
+            val destinationFile = java.io.File(destinationHolder.file, item.relativePath)
+
+            updateProgress(index, sourceHolder.displayName)
+
+            if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                return
+            }
+
+            if (item.status == TaskContentStatus.PENDING) {
+                val conflictExists = destinationFile.exists() && destinationFile.isFile
+                if (conflictExists && !handleConflict(item)) {
+                    return
+                }
+            }
+
+            when (item.status) {
+                TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                    item.status = if (copyShizukuToLocalFile(
+                            sourceHolder,
+                            destinationFile,
+                            item.status == TaskContentStatus.REPLACE
+                        )
+                    ) {
+                        TaskContentStatus.SUCCESS
+                    } else {
+                        TaskContentStatus.FAILED
+                    }
+                }
+
+                else -> { /* Already handled */
+                }
+            }
+        }
+    }
+
+    private fun copyShizukuToLocalFile(source: ShizukuFileHolder, destination: java.io.File, overwrite: Boolean): Boolean {
+        return try {
+            if (source.isFolder) {
+                destination.mkdirs()
+            } else {
+                destination.parentFile?.mkdirs()
+                val cmd = if (overwrite) {
+                    "cp -f '${source.path}' '${destination.absolutePath}'"
+                } else {
+                    "cp '${source.path}' '${destination.absolutePath}'"
+                }
+                val result = globalClass.shizukuManager.runShellCommand(cmd)
+                result != null && !result.contains("denied") && destination.exists()
+            }
+        } catch (e: Exception) {
+            logger.logError(e)
+            false
+        }
+    }
+
+    private fun copyShizukuFilesToZip(sourcePath: String, destinationHolder: ZipFileHolder) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        val tempDir = java.io.File(globalClass.cacheDir, "shizuku_copy_${System.currentTimeMillis()}")
+        tempDir.mkdirs()
+
+        try {
+            ZipFile(destinationHolder.zipTree.source.file).use { targetZipFile ->
+                pendingFiles.forEachIndexed { index, item ->
+                    if (aborted) {
+                        progressMonitor.status = TaskStatus.PAUSED
+                        return
+                    }
+
+                    if (item.status isNot TaskContentStatus.PENDING
+                        && item.status isNot TaskContentStatus.REPLACE
+                        && item.status isNot TaskContentStatus.CONFLICT
+                    ) {
+                        return@forEachIndexed
+                    }
+
+                    val sourceHolder = item.content as ShizukuFileHolder
+                    updateProgress(index, item.content.displayName)
+
+                    if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                        return
+                    }
+
+                    val targetPath = createZipEntryPath(destinationHolder.node.path, item.relativePath)
+
+                    if (item.status == TaskContentStatus.PENDING) {
+                        val existingHeader = targetZipFile.getFileHeader(targetPath)
+                        val conflictExists = existingHeader != null && !existingHeader.isDirectory
+                        if (conflictExists && !handleConflict(item)) {
+                            return
+                        }
+                    }
+
+                    when (item.status) {
+                        TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                            if (sourceHolder.isFolder) {
+                                val params = net.lingala.zip4j.model.ZipParameters().apply {
+                                    fileNameInZip = "$targetPath/"
+                                    isOverrideExistingFilesInZip = true
+                                }
+                                targetZipFile.addStream(
+                                    ByteArrayInputStream(ByteArray(0)),
+                                    params
+                                )
+                                item.status = TaskContentStatus.SUCCESS
+                            } else {
+                                val tempFile = java.io.File(tempDir, sourceHolder.displayName)
+                                val copied = copyShizukuToLocalFile(sourceHolder, tempFile, true)
+                                if (copied && tempFile.exists()) {
+                                    val params = net.lingala.zip4j.model.ZipParameters().apply {
+                                        this.fileNameInZip = targetPath
+                                        isOverrideExistingFilesInZip = true
+                                    }
+                                    targetZipFile.addFile(tempFile, params)
+                                    tempFile.delete()
+                                    item.status = TaskContentStatus.SUCCESS
+                                } else {
+                                    item.status = TaskContentStatus.FAILED
+                                }
+                            }
+                        }
+                        else -> { /* Already handled */ }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            throw RuntimeException(globalClass.getString(R.string.failed_to_copy_files_to_zip), e)
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    private fun copyLocalFilesToShizuku(sourcePath: String, destinationHolder: ShizukuFileHolder) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        pendingFiles.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            if (item.status isNot TaskContentStatus.PENDING
+                && item.status isNot TaskContentStatus.REPLACE
+                && item.status isNot TaskContentStatus.CONFLICT
+            ) {
+                return@forEachIndexed
+            }
+
+            val sourceFile = (item.content as LocalFileHolder).file
+            val destPath = if (destinationHolder.path.endsWith("/")) {
+                "${destinationHolder.path}${item.relativePath}"
+            } else {
+                "${destinationHolder.path}/${item.relativePath}"
+            }
+
+            updateProgress(index, sourceFile.name)
+
+            if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                return
+            }
+
+            if (item.status == TaskContentStatus.PENDING) {
+                val destExistsCmd = "test -e '$destPath' && echo 'yes'"
+                val exists = runShizukuShellCommand(destExistsCmd)
+                if (exists?.trim() == "yes" && !handleConflict(item)) {
+                    return
+                }
+            }
+
+            when (item.status) {
+                TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                    item.status = if (copyLocalToShizukuFile(
+                            sourceFile,
+                            destPath,
+                            item.status == TaskContentStatus.REPLACE
+                        )
+                    ) {
+                        TaskContentStatus.SUCCESS
+                    } else {
+                        TaskContentStatus.FAILED
+                    }
+                }
+
+                else -> { /* Already handled */
+                }
+            }
+        }
+    }
+
+    private fun copyLocalToShizukuFile(source: java.io.File, destPath: String, overwrite: Boolean): Boolean {
+        return try {
+            if (source.isDirectory) {
+                runShizukuShellCommand("mkdir -p '$destPath'") != null
+            } else {
+                val cmd = if (overwrite) {
+                    "cp -f '${source.absolutePath}' '$destPath'"
+                } else {
+                    "cp '${source.absolutePath}' '$destPath'"
+                }
+                val result = runShizukuShellCommand(cmd)
+                result != null && !result.contains("denied")
+            }
+        } catch (e: Exception) {
+            logger.logError(e)
+            false
+        }
+    }
+
+    private fun runShizukuShellCommand(command: String): String? {
+        return globalClass.shizukuManager.runShellCommand(command)
+    }
+
     private fun createZipEntryPath(basePath: String, relativePath: String): String {
         return if (basePath.isEmpty()) {
             relativePath
@@ -795,7 +1094,7 @@ class CopyTask(
                 startFile.file.listFilesAndEmptyDirs().map { file ->
                     TaskContentItem(
                         content = LocalFileHolder(file),
-                        relativePath = file.toRelativeString(File(basePath))
+                        relativePath = file.toRelativeString(java.io.File(basePath))
                             .orIf(startFile.displayName) { it.isEmpty() },
                         status = TaskContentStatus.PENDING
                     )
@@ -810,6 +1109,31 @@ class CopyTask(
                             .orIf(startFile.displayName) { it.isEmpty() },
                         status = TaskContentStatus.PENDING
                     )
+                }
+            }
+
+            is ShizukuFileHolder -> {
+                runBlocking {
+                    startFile.listContent().flatMap { child ->
+                        if (child.isFolder) {
+                            listFilesWithRelativePath(startFile.path, child).map { item ->
+                                item.copy(
+                                    relativePath = if (item.relativePath.isEmpty())
+                                        child.displayName
+                                    else
+                                        "${child.displayName}/${item.relativePath}"
+                                )
+                            }
+                        } else {
+                            listOf(
+                                TaskContentItem(
+                                    content = child,
+                                    relativePath = child.displayName,
+                                    status = TaskContentStatus.PENDING
+                                )
+                            )
+                        }
+                    }
                 }
             }
 

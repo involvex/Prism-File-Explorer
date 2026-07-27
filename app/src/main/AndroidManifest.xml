@@ -16,6 +16,10 @@
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove"/>
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <queries>
+        <package android:name="dev.rikka.shizuku" />
+    </queries>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <uses-feature
@@ -174,6 +178,19 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/provider_paths" />
         </provider>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <service
+            android:name=".ShizukuShellService"
+            android:exported="false" />
 
     </application>
 
