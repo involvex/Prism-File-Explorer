@@ -464,4 +464,6 @@
     <string name="browse_data_data">Browse data/data</string>
     <string name="shizuku_v11_required">Shizuku v11+ is required</string>
     <string name="shizuku_access">Shizuku Access</string>
+    <string name="disable_recycle_bin">Disable Recycle Bin</string>
+    <string name="disable_recycle_bin_desc">Permanently delete files instead of moving to recycle bin</string>
 </resources>

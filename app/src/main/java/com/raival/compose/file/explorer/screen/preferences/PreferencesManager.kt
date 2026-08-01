@@ -172,6 +172,12 @@ class PreferencesManager {
         getPreferencesKey = { booleanPreferencesKey(it) }
     )
 
+    var disableRecycleBin by prefMutableState(
+        keyName = "disableRecycleBin",
+        defaultValue = false,
+        getPreferencesKey = { booleanPreferencesKey(it) }
+    )
+
     var shizukuEnabled by prefMutableState(
         keyName = "shizuku_enabled",
         defaultValue = false,
