@@ -466,4 +466,5 @@
     <string name="shizuku_access">Shizuku Access</string>
     <string name="disable_recycle_bin">Disable Recycle Bin</string>
     <string name="disable_recycle_bin_desc">Permanently delete files instead of moving to recycle bin</string>
+    <string name="refresh_shizuku_status">Refresh Status</string>
 </resources>

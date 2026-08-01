@@ -3,6 +3,7 @@ package com.raival.compose.file.explorer.screen.preferences.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.R
+import com.raival.compose.file.explorer.common.emptyString
 
 @Composable
 fun ShizukuContainer() {
@@ -47,6 +49,15 @@ fun ShizukuContainer() {
                     } catch (_: Exception) {
                         globalClass.showMsg(R.string.shizuku_not_installed)
                     }
+                }
+            )
+
+            PreferenceItem(
+                label = stringResource(R.string.refresh_shizuku_status),
+                supportingText = emptyString,
+                icon = Icons.Rounded.Refresh,
+                onClick = {
+                    globalClass.shizukuManager.refreshAvailability()
                 }
             )
         }
