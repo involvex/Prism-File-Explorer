@@ -6,6 +6,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.HorizontalDivider
@@ -93,6 +94,19 @@ fun BehaviorContainer() {
             icon = Icons.Rounded.Warning,
             switchState = prefs.confirmBeforeAppClose,
             onSwitchChange = { prefs.confirmBeforeAppClose = it }
+        )
+
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            thickness = 3.dp
+        )
+
+        PreferenceItem(
+            label = stringResource(R.string.disable_recycle_bin),
+            supportingText = stringResource(R.string.disable_recycle_bin_desc),
+            icon = Icons.Rounded.DeleteSweep,
+            switchState = prefs.disableRecycleBin,
+            onSwitchChange = { prefs.disableRecycleBin = it }
         )
 
         PreferenceItem(
