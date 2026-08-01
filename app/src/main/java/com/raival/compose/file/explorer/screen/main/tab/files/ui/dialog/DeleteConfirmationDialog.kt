@@ -63,7 +63,7 @@ fun DeleteConfirmationDialog(
                                 moveToRecycleBin
                         }
                         tab.scope.launch {
-                            if (!bottomOptionsBarState.value.showEmptyRecycleBinButton && moveToRecycleBin) {
+                            if (!bottomOptionsBarState.value.showEmptyRecycleBinButton && moveToRecycleBin && !preferencesManager.disableRecycleBin) {
                                 globalClass.recycleBinDir.createSubFolder(
                                     System.currentTimeMillis().toString()
                                 ) { newDir ->
@@ -102,7 +102,7 @@ fun DeleteConfirmationDialog(
                         text = stringResource(id = R.string.delete_confirmation_message)
                     )
 
-                    if (!bottomOptionsBarState.value.showEmptyRecycleBinButton) {
+                    if (!bottomOptionsBarState.value.showEmptyRecycleBinButton && !preferencesManager.disableRecycleBin) {
                         Space(size = 8.dp)
 
                         CheckableText(
