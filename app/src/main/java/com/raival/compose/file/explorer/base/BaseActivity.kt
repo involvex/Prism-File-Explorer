@@ -66,6 +66,7 @@ abstract class BaseActivity : AppCompatActivity() {
         try {
             Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
         } catch (_: Exception) { }
+        globalClass.shizukuManager.registerListeners()
     }
 
     override fun onDestroy() {
@@ -73,6 +74,7 @@ abstract class BaseActivity : AppCompatActivity() {
         try {
             Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
         } catch (_: Exception) { }
+        globalClass.shizukuManager.unregisterListeners()
     }
 
     protected fun checkPermissions() {
