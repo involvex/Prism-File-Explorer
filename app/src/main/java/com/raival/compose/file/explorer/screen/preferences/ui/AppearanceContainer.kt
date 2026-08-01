@@ -25,6 +25,7 @@ fun AppearanceContainer() {
             supportingText = when (prefs.theme) {
                 ThemePreference.LIGHT.ordinal -> stringResource(R.string.light)
                 ThemePreference.DARK.ordinal -> stringResource(R.string.dark)
+                ThemePreference.HACKER.ordinal -> stringResource(R.string.hacker)
                 else -> stringResource(R.string.follow_system)
             },
             icon = Icons.Rounded.Nightlight,
@@ -35,7 +36,8 @@ fun AppearanceContainer() {
                     choices = listOf(
                         globalClass.getString(R.string.light),
                         globalClass.getString(R.string.dark),
-                        globalClass.getString(R.string.follow_system)
+                        globalClass.getString(R.string.follow_system),
+                        globalClass.getString(R.string.hacker)
                     ),
                     selectedChoice = prefs.theme,
                     onSelect = { prefs.theme = it }
