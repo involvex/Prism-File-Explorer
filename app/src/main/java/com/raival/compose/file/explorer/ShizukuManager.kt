@@ -39,6 +39,19 @@ class ShizukuManager {
     private val serviceCondition = serviceLock.newCondition()
     private var serviceReady = false
 
+    private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
+        Log.d(TAG, "Shizuku binder received")
+        refreshAvailability()
+    }
+
+    private val binderDeadListener = Shizuku.OnBinderDeadListener {
+        Log.d(TAG, "Shizuku binder dead")
+        _shizukuAvailable.value = false
+        _shizukuGranted.value = false
+        _isRoot.value = false
+        _isShell.value = false
+    }
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             shellBinder = service as? ShizukuShellService.ShellBinder
@@ -72,6 +85,7 @@ class ShizukuManager {
         }
         checkAvailability()
         checkPermissionState()
+        registerListeners()
     }
 
     private fun checkAvailability() {
@@ -79,6 +93,17 @@ class ShizukuManager {
             Shizuku.isPreV11().not() && Shizuku.getVersion() != 0
         } catch (_: Exception) {
             false
+        }
+    }
+
+    fun refreshAvailability() {
+        checkAvailability()
+        if (_shizukuAvailable.value) {
+            checkPermissionState()
+        } else {
+            _shizukuGranted.value = false
+            _isRoot.value = false
+            _isShell.value = false
         }
     }
 
@@ -101,6 +126,20 @@ class ShizukuManager {
             val uid = Shizuku.getUid()
             _isRoot.value = uid == 0
             _isShell.value = uid == 2000
+        } catch (_: Exception) { }
+    }
+
+    fun registerListeners() {
+        try {
+            Shizuku.addBinderReceivedListener(binderReceivedListener)
+            Shizuku.addBinderDeadListener(binderDeadListener)
+        } catch (_: Exception) { }
+    }
+
+    fun unregisterListeners() {
+        try {
+            Shizuku.removeBinderReceivedListener(binderReceivedListener)
+            Shizuku.removeBinderDeadListener(binderDeadListener)
         } catch (_: Exception) { }
     }
 
