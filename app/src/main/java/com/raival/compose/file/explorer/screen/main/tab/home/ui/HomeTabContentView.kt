@@ -180,7 +180,9 @@ fun ColumnScope.HomeTabContentView(tab: HomeTab) {
                 }
 
                 HomeSectionType.RECYCLE_BIN -> {
-                    RecycleBinSection(mainActivityManager = mainActivityManager)
+                    if (!globalClass.preferencesManager.disableRecycleBin) {
+                        RecycleBinSection(mainActivityManager = mainActivityManager)
+                    }
                 }
 
                 HomeSectionType.JUMP_TO_PATH -> {
