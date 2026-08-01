@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -26,6 +27,37 @@ import com.raival.compose.file.explorer.screen.preferences.constant.ThemePrefere
 private val DarkColorScheme = darkColorScheme()
 
 private val LightColorScheme = lightColorScheme()
+
+private val HackerColorScheme = darkColorScheme(
+    primary = Color(0xFF00FF41),
+    onPrimary = Color(0xFF000000),
+    primaryContainer = Color(0xFF003300),
+    onPrimaryContainer = Color(0xFF00FF41),
+    secondary = Color(0xFF00CC33),
+    onSecondary = Color(0xFF000000),
+    secondaryContainer = Color(0xFF002200),
+    onSecondaryContainer = Color(0xFF00FF41),
+    tertiary = Color(0xFF33FF66),
+    onTertiary = Color(0xFF000000),
+    tertiaryContainer = Color(0xFF004400),
+    onTertiaryContainer = Color(0xFF00FF41),
+    background = Color(0xFF000000),
+    onBackground = Color(0xFF00FF41),
+    surface = Color(0xFF0A0A0A),
+    onSurface = Color(0xFF00FF41),
+    surfaceVariant = Color(0xFF111111),
+    onSurfaceVariant = Color(0xFF00CC33),
+    outline = Color(0xFF009922),
+    outlineVariant = Color(0xFF003300),
+    error = Color(0xFFFF0000),
+    onError = Color(0xFF000000),
+    errorContainer = Color(0xFF330000),
+    onErrorContainer = Color(0xFFFF4444),
+    inverseSurface = Color(0xFF00FF41),
+    inverseOnSurface = Color(0xFF000000),
+    inversePrimary = Color(0xFF003300),
+    surfaceTint = Color(0xFF00FF41),
+)
 
 @Composable
 fun FileExplorerTheme(
@@ -46,6 +78,7 @@ fun FileExplorerTheme(
             when (manager.theme) {
                 ThemePreference.LIGHT.ordinal -> dynamicLightColorScheme(context)
                 ThemePreference.DARK.ordinal -> dynamicDarkColorScheme(context)
+                ThemePreference.HACKER.ordinal -> HackerColorScheme
                 else -> if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(
                     context
                 )
@@ -54,6 +87,7 @@ fun FileExplorerTheme(
             when (manager.theme) {
                 ThemePreference.LIGHT.ordinal -> LightColorScheme
                 ThemePreference.DARK.ordinal -> DarkColorScheme
+                ThemePreference.HACKER.ordinal -> HackerColorScheme
                 else -> if (darkTheme) DarkColorScheme else LightColorScheme
             }
         }
@@ -72,9 +106,10 @@ fun FileExplorerTheme(
     if (!view.isInEditMode) {
         SideEffect {
             (view.context as? Activity)?.window?.let {
-                WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars = !darkTheme
+                val isHackerTheme = manager.theme == ThemePreference.HACKER.ordinal
+                WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars =
+                    if (isHackerTheme) false else !darkTheme
             }
-
         }
     }
 
