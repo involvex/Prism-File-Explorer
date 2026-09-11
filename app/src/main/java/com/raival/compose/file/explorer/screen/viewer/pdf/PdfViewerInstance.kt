@@ -428,11 +428,10 @@ class PdfViewerInstance(
         return try {
             val doc = pdDocument
             if (doc == null) return null
-            val baseName = uri.name?.substringBeforeLast('.', "filled") ?: "filled"
-            val outputFile = File(File(folder), "${baseName}_filled.pdf")
-            val outputStream = FileOutputStream(outputFile)
-            doc.save(outputStream)
-            outputStream.close()
+            val baseName = sanitizeFileName(uri.name?.substringBeforeLast('.', "filled") ?: "filled")
+            val outputDir = File(folder).takeIf { it.isDirectory && it.canWrite() } ?: return null
+            val outputFile = File(outputDir, "${baseName}_filled.pdf")
+            FileOutputStream(outputFile).use { doc.save(it) }
             hasUnsavedFormChanges = false
             modifiedFieldValues.clear()
             outputFile
@@ -532,8 +531,9 @@ class PdfViewerInstance(
             if (doc == null) return null
             val stripper = PDFTextStripper()
             val text = stripper.getText(doc)
-            val baseName = uri.name?.substringBeforeLast('.', "export") ?: "export"
-            val outputFile = File(File(folder), "${baseName}.md")
+            val baseName = sanitizeFileName(uri.name?.substringBeforeLast('.', "export") ?: "export")
+            val outputDir = File(folder).takeIf { it.isDirectory && it.canWrite() } ?: return null
+            val outputFile = File(outputDir, "${baseName}.md")
             outputFile.writeText(formatAsMarkdown(text))
             outputFile
         } catch (e: Exception) {
@@ -548,14 +548,22 @@ class PdfViewerInstance(
             if (doc == null) return null
             val stripper = PDFTextStripper()
             val text = stripper.getText(doc)
-            val baseName = uri.name?.substringBeforeLast('.', "export") ?: "export"
-            val outputFile = File(File(folder), "${baseName}.odt")
+            val baseName = sanitizeFileName(uri.name?.substringBeforeLast('.', "export") ?: "export")
+            val outputDir = File(folder).takeIf { it.isDirectory && it.canWrite() } ?: return null
+            val outputFile = File(outputDir, "${baseName}.odt")
             createOdfFromText(text, outputFile)
             outputFile
         } catch (e: Exception) {
             logger.logError(e)
             null
         }
+    }
+
+    private fun sanitizeFileName(name: String): String {
+        return name
+            .replace(Regex("[/\\\\]"), "_")  // Replace path separators
+            .replace(Regex("^\\.+"), "")  // Remove leading dots (hidden files)
+            .takeIf { it.isNotBlank() } ?: "export"
     }
 
     override fun onClose() {

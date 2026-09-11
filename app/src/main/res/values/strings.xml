@@ -111,6 +111,14 @@
     <string name="select_option">Select an option</string>
     <string name="signature_field">Signature field</string>
     <string name="saved_successfully">Saved successfully</string>
+    <string name="saved_successfully_with_name">Saved successfully: %1$s</string>
+    <string name="exporting">Exporting</string>
+    <string name="exporting_message">Please wait...</string>
+    <string name="save_location_title">Save Location</string>
+    <string name="save_location_message">Save to current folder or choose another location?</string>
+    <string name="save_to_folder">Save to folder</string>
+    <string name="save_as">Save as...</string>
+    <string name="save_filled_to_folder">Save filled form to folder</string>
     <string name="failed_to_load_symbols_file">Failed to load symbols file</string>
     <string name="changed_source_file">The source file has been changed, do you want to reload it?</string>
     <string name="reload">Reload</string>

@@ -23,9 +23,20 @@ import java.io.FileOutputStream
 import java.util.zip.ZipFile
 
 class DocumentConverter {
+    companion object {
+        private const val MAX_DOC_SIZE_BYTES = 50L * 1024 * 1024  // 50 MB
+    }
 
     fun convertOfficeToPdf(uri: Uri, output: File): Boolean {
         return try {
+            val assetFile = globalClass.contentResolver.openFileDescriptor(uri, "r") ?: return false
+            val fileSize = assetFile.statSize
+            if (fileSize > MAX_DOC_SIZE_BYTES) {
+                assetFile.close()
+                logger.logError("Document too large: $fileSize bytes (max $MAX_DOC_SIZE_BYTES)")
+                return false
+            }
+            assetFile.close()
             val content = globalClass.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return false
             val ext = File(uri.path ?: "").extension.lowercase()
             val text = when (ext) {

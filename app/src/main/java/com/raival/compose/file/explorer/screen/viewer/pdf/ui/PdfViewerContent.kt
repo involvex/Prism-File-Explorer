@@ -299,7 +299,7 @@ fun PdfViewerContent(
                             coroutineScope.launch {
                                 val result = instance.savePdfAsToFolder(parentDir!!)
                                 if (result != null) {
-                                    Toast.makeText(context, globalClass.getString(R.string.saved_successfully) + ": " + result.name, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, globalClass.getString(R.string.saved_successfully_with_name, result.name), Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
                                 }
@@ -310,20 +310,7 @@ fun PdfViewerContent(
                 )
 
                 if (isExporting) {
-                    AlertDialog(
-                        onDismissRequest = {},
-                        confirmButton = {},
-                        title = { Text("Exporting") },
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                Text("Please wait...")
-                            }
-                        }
-                    )
+                    ExportingDialog()
                 }
 
                 if (showExportChoice != null) {
@@ -333,31 +320,20 @@ fun PdfViewerContent(
                         confirmButton = { TextButton(onClick = {
                             isExporting = true
                             showExportChoice = null
-                            when (exportType) {
-                                ExportType.MARKDOWN -> {
-                                    coroutineScope.launch {
-                                        val result = instance.saveMarkdownToFolder(parentDir!!)
-                                        if (result != null) {
-                                            Toast.makeText(context, globalClass.getString(R.string.saved_successfully) + ": " + result.name, Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
-                                        }
-                                        isExporting = false
-                                    }
-                                }
-                                ExportType.ODF -> {
-                                    coroutineScope.launch {
-                                        val result = instance.saveOdfToFolder(parentDir!!)
-                                        if (result != null) {
-                                            Toast.makeText(context, globalClass.getString(R.string.saved_successfully) + ": " + result.name, Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
-                                        }
-                                        isExporting = false
-                                    }
-                                }
+                            val saveAction: (String) -> File? = when (exportType) {
+                                ExportType.MARKDOWN -> instance::saveMarkdownToFolder
+                                ExportType.ODF -> instance::saveOdfToFolder
                             }
-                        }) { Text("Save to folder") } },
+                            coroutineScope.launch {
+                                val result = saveAction(parentDir!!)
+                                if (result != null) {
+                                    Toast.makeText(context, globalClass.getString(R.string.saved_successfully_with_name, result.name), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                                }
+                                isExporting = false
+                            }
+                        }) { Text(globalClass.getString(R.string.save_to_folder)) } },
                         dismissButton = { TextButton(onClick = {
                             showExportChoice = null
                             when (exportType) {
@@ -365,14 +341,32 @@ fun PdfViewerContent(
                                 ExportType.ODF -> odfSaveLauncher.launch("document.odt")
                             }
                             isExporting = true
-                        }) { Text("Save as...") } },
-                        title = { Text("Save Location") },
-                        text = { Text("Save to current folder or choose another location?") }
+                        }) { Text(globalClass.getString(R.string.save_as)) } },
+                        title = { Text(globalClass.getString(R.string.save_location_title)) },
+                        text = { Text(globalClass.getString(R.string.save_location_message)) }
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun ExportingDialog() {
+    AlertDialog(
+        onDismissRequest = {},
+        confirmButton = {},
+        title = { Text("Exporting") },
+        text = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Text("Please wait...")
+            }
+        }
+    )
 }
 
 private enum class ExportType { MARKDOWN, ODF }

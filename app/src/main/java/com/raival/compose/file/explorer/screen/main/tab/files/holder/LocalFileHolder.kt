@@ -25,6 +25,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.prismPrefsFileType
 import com.raival.compose.file.explorer.screen.viewer.audio.AudioPlayerActivity
 import com.raival.compose.file.explorer.screen.viewer.image.ImageViewerActivity
+import com.raival.compose.file.explorer.screen.viewer.ViewerActivity.Companion.EXTRA_PARENT_DIR
 import com.raival.compose.file.explorer.screen.viewer.DocumentViewerActivity
 import com.raival.compose.file.explorer.screen.viewer.pdf.PdfViewerActivity
 import com.raival.compose.file.explorer.screen.viewer.video.VideoPlayerActivity
@@ -247,7 +248,7 @@ class LocalFileHolder(val file: File) : ContentHolder() {
             )
             setPackage(packageName)
             setClassName(packageName, className)
-            putExtra("parent_dir", file.parentFile?.absolutePath)
+            putExtra(EXTRA_PARENT_DIR, file.parentFile?.absolutePath)
         }
 
         if (intent.resolveActivity(globalClass.packageManager) != null) {

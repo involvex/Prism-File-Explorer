@@ -9,6 +9,10 @@ import com.raival.compose.file.explorer.common.emptyString
 import com.raival.compose.file.explorer.common.randomString
 
 abstract class ViewerActivity : BaseActivity() {
+    companion object {
+        const val EXTRA_PARENT_DIR = "parent_dir"
+    }
+
     private var uri: Uri? = null
     private var uid: String = emptyString
     private var currentInstance: ViewerInstance? = null
@@ -28,7 +32,7 @@ abstract class ViewerActivity : BaseActivity() {
         }
 
         uri = intent.data
-        parentDir = intent.getStringExtra("parent_dir")
+        parentDir = intent.getStringExtra(EXTRA_PARENT_DIR)
 
         if (savedInstanceState != null) {
             uid = savedInstanceState.getString("uid", String.randomString(12))
