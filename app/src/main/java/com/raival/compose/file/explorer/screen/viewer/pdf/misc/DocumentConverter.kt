@@ -8,7 +8,10 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
+import org.apache.poi.hslf.usermodel.HSLFSlideShow
+import org.apache.poi.hwpf.HWPFDocument
 import org.apache.poi.poifs.filesystem.POIFSFileSystem
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.apache.poi.xslf.extractor.XSLFExtractor
@@ -63,7 +66,14 @@ class DocumentConverter {
     }
 
     private fun extractDoc(content: ByteArray): String {
-        return "Legacy .doc format requires POI Scratchpad. Please convert to .docx."
+        return try {
+            val doc = HWPFDocument(content.inputStream())
+            val range = doc.range
+            range.text()
+        } catch (e: Exception) {
+            logger.logError(e)
+            ""
+        }
     }
 
     private fun extractXlsx(content: ByteArray): String {
@@ -137,7 +147,21 @@ class DocumentConverter {
     }
 
     private fun extractPpt(content: ByteArray): String {
-        return "Legacy .ppt format requires POI Scratchpad. Please convert to .pptx."
+        return try {
+            val fs = POIFSFileSystem(content.inputStream())
+            val ppt = HSLFSlideShow(fs)
+            val text = StringBuilder()
+            for (slide in ppt.slides) {
+                text.append("--- Slide ---\n")
+                text.append(slide.toString()).append("\n")
+            }
+            ppt.close()
+            fs.close()
+            text.toString()
+        } catch (e: Exception) {
+            logger.logError(e)
+            ""
+        }
     }
 
     private fun extractOdf(uri: Uri, ext: String): String {
@@ -175,6 +199,103 @@ class DocumentConverter {
         val text = xml.replace(Regex("<[^>]+>"), " ")
         val cleaned = Regex("\\s+").replace(text, " ")
         return cleaned.trim()
+    }
+
+    fun convertPdfToMarkdown(uri: Uri, output: File): Boolean {
+        return try {
+            val inputStream = globalClass.contentResolver.openInputStream(uri) ?: return false
+            val document = PDDocument.load(inputStream)
+            val stripper = PDFTextStripper()
+            val text = stripper.getText(document)
+            document.close()
+            inputStream.close()
+
+            val markdown = formatAsMarkdown(text)
+            output.writeText(markdown)
+            true
+        } catch (e: Exception) {
+            logger.logError(e)
+            false
+        }
+    }
+
+    private fun formatAsMarkdown(text: String): String {
+        val lines = text.lines()
+        val result = StringBuilder()
+        var prevBlank = false
+
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) {
+                if (!prevBlank) {
+                    result.append("\n")
+                }
+                prevBlank = true
+            } else {
+                result.append(trimmed).append("\n")
+                prevBlank = false
+            }
+        }
+
+        return result.toString().trim() + "\n"
+    }
+
+    fun convertPdfToOdf(uri: Uri, output: File): Boolean {
+        return try {
+            val inputStream = globalClass.contentResolver.openInputStream(uri) ?: return false
+            val document = PDDocument.load(inputStream)
+            val stripper = PDFTextStripper()
+            val text = stripper.getText(document)
+            document.close()
+            inputStream.close()
+
+            createOdfFromText(text, output)
+            true
+        } catch (e: Exception) {
+            logger.logError(e)
+            false
+        }
+    }
+
+    private fun createOdfFromText(text: String, output: File) {
+        val escapedText = escapeXml(text)
+
+        val contentXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlnsoffice:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.2">
+                <office:body>
+                    <office:text>
+                        <text:p>$escapedText</text:p>
+                    </office:text>
+                </office:body>
+            </office:document-content>
+        """.trimIndent()
+
+        val manifestXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">
+                <manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.text" manifest:full-path="/"/>
+                <manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/>
+            </manifest:manifest>
+        """.trimIndent()
+
+        val zipOutput = java.util.zip.ZipOutputStream(FileOutputStream(output))
+        zipOutput.putNextEntry(java.util.zip.ZipEntry("mimetype"))
+        zipOutput.write("application/vnd.oasis.opendocument.text".toByteArray())
+        zipOutput.closeEntry()
+        zipOutput.putNextEntry(java.util.zip.ZipEntry("content.xml"))
+        zipOutput.write(contentXml.toByteArray())
+        zipOutput.closeEntry()
+        zipOutput.putNextEntry(java.util.zip.ZipEntry("META-INF/manifest.xml"))
+        zipOutput.write(manifestXml.toByteArray())
+        zipOutput.closeEntry()
+        zipOutput.close()
+    }
+
+    private fun escapeXml(text: String): String {
+        return text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
     }
 
     private fun createPdfFromText(text: String, output: File) {

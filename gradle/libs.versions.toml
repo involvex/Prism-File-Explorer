@@ -87,6 +87,7 @@ shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
 shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
 pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfboxAndroid" }
 apache-poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "apachePoi" }
+apache-poi-scratchpad = { module = "org.apache.poi:poi-scratchpad", version.ref = "apachePoi" }
 apache-poi = { module = "org.apache.poi:poi", version.ref = "apachePoi" }
 
 [plugins]

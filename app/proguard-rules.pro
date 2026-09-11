@@ -32,6 +32,19 @@
 -dontwarn com.tom.roush.pdfbox.**
 -dontwarn org.apache.fontbox.**
 
+# Apache POI - Office document processing
+-keep class org.apache.poi.** { *; }
+-keep class org.apache.poi.hssf.** { *; }
+-keep class org.apache.poi.hwpf.** { *; }
+-keep class org.apache.poi.xssf.** { *; }
+-keep class org.apache.poi.xwpf.** { *; }
+-keep class org.apache.poi.xslf.** { *; }
+-keep class org.apache.poi.hslf.** { *; }
+-keep class org.apache.poi.openxml4j.** { *; }
+-keep class org.apache.poi.poifs.** { *; }
+-keep class org.apache.poi.openxml4j.opc.** { *; }
+-dontwarn org.apache.poi.**
+
 -keepnames interface * { *; }
 
 # Shizuku

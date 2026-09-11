@@ -15,6 +15,7 @@ android {
         targetSdk = 36
         versionCode = 10
         versionName = "1.3.2"
+        multiDexEnabled = true
     }
 
     dependenciesInfo {
@@ -97,6 +98,7 @@ dependencies {
     implementation(libs.okio)
     implementation(libs.pdfbox.android)
     implementation(libs.apache.poi.ooxml)
+    implementation(libs.apache.poi.scratchpad)
 
     // Third-Party UI/Compose Utilities
     implementation(libs.accompanist.systemuicontroller)
