@@ -292,7 +292,21 @@ fun PdfViewerContent(
                             isExporting = true
                             odfSaveLauncher.launch("document.odt")
                         }
-                    }
+                    },
+                    onSaveFilledToFolder = if (parentDir != null && instance.hasUnsavedFormChanges) {
+                        {
+                            isExporting = true
+                            coroutineScope.launch {
+                                val result = instance.savePdfAsToFolder(parentDir!!)
+                                if (result != null) {
+                                    Toast.makeText(context, globalClass.getString(R.string.saved_successfully) + ": " + result.name, Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                                }
+                                isExporting = false
+                            }
+                        }
+                    } else null
                 )
 
                 if (isExporting) {

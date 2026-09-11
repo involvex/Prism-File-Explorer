@@ -52,7 +52,8 @@ fun TopToolbar(
     onEditModeToggle: () -> Unit,
     onSaveClick: () -> Unit,
     onExportMarkdown: () -> Unit,
-    onExportOdf: () -> Unit
+    onExportOdf: () -> Unit,
+    onSaveFilledToFolder: (() -> Unit)? = null
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -164,6 +165,15 @@ fun TopToolbar(
                         },
                         text = { Text("Export as ODF") }
                     )
+                    onSaveFilledToFolder?.let {
+                        DropdownMenuItem(
+                            onClick = {
+                                showMoreMenu = false
+                                it()
+                            },
+                            text = { Text("Save filled form to folder") }
+                        )
+                    }
                 }
 
                 IconButton(onClick = onInfoClick) {

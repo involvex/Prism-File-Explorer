@@ -424,6 +424,24 @@ class PdfViewerInstance(
         }
     }
 
+    fun savePdfAsToFolder(folder: String): File? {
+        return try {
+            val doc = pdDocument
+            if (doc == null) return null
+            val baseName = uri.name?.substringBeforeLast('.', "filled") ?: "filled"
+            val outputFile = File(File(folder), "${baseName}_filled.pdf")
+            val outputStream = FileOutputStream(outputFile)
+            doc.save(outputStream)
+            outputStream.close()
+            hasUnsavedFormChanges = false
+            modifiedFieldValues.clear()
+            outputFile
+        } catch (e: Exception) {
+            logger.logError(e)
+            null
+        }
+    }
+
     fun exportToMarkdown(output: File): Boolean {
         return try {
             val doc = pdDocument
