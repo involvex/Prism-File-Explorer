@@ -26,6 +26,12 @@
 -keep class android.content.** { *; }
 -keep class com.android.apksig.** { *; }
 
+-keep class com.tom.roush.pdfbox.** { *; }
+-keep class org.apache.fontbox.** { *; }
+-keep class org.apache.commons.logging.** { *; }
+-dontwarn com.tom.roush.pdfbox.**
+-dontwarn org.apache.fontbox.**
+
 -keepnames interface * { *; }
 
 # Shizuku

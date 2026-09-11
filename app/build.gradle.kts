@@ -95,6 +95,8 @@ dependencies {
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
     implementation(libs.okio)
+    implementation(libs.pdfbox.android)
+    implementation(libs.apache.poi.ooxml)
 
     // Third-Party UI/Compose Utilities
     implementation(libs.accompanist.systemuicontroller)

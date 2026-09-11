@@ -25,6 +25,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.prismPrefsFileType
 import com.raival.compose.file.explorer.screen.viewer.audio.AudioPlayerActivity
 import com.raival.compose.file.explorer.screen.viewer.image.ImageViewerActivity
+import com.raival.compose.file.explorer.screen.viewer.DocumentViewerActivity
 import com.raival.compose.file.explorer.screen.viewer.pdf.PdfViewerActivity
 import com.raival.compose.file.explorer.screen.viewer.video.VideoPlayerActivity
 import kotlinx.coroutines.runBlocking
@@ -318,6 +319,19 @@ class LocalFileHolder(val file: File) : ContentHolder() {
                 context,
                 context.packageName,
                 PdfViewerActivity::class.java.name
+            )
+            return true
+        }
+
+        if (FileMimeType.docFileType.contains(extension) ||
+            FileMimeType.excelFileType.contains(extension) ||
+            FileMimeType.pptFileType.contains(extension) ||
+            FileMimeType.odfFileType.contains(extension)
+        ) {
+            openFileWithPackage(
+                context,
+                context.packageName,
+                DocumentViewerActivity::class.java.name
             )
             return true
         }

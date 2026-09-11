@@ -36,6 +36,8 @@ reorderable = "2.5.1"
 uiToolingPreviewAndroid = "1.9.0"
 zoomableImageCoil3 = "0.16.0"
 shizuku = "13.1.5"
+pdfboxAndroid = "2.0.27.0"
+apachePoi = "5.2.5"
 
 [libraries]
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
@@ -83,6 +85,9 @@ androidx-ui-tooling-preview-android = { group = "androidx.compose.ui", name = "u
 zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "zoomableImageCoil3" }
 shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
 shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
+pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfboxAndroid" }
+apache-poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "apachePoi" }
+apache-poi = { module = "org.apache.poi:poi", version.ref = "apachePoi" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

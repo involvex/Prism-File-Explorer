@@ -24,6 +24,9 @@ object FileMimeType {
     val pptFileType = arrayOf("ppt", "pptx")
 
     @JvmField
+    val odfFileType = arrayOf("odt", "ods", "odp")
+
+    @JvmField
     val fontFileType = arrayOf("ttf", "otf")
 
     @JvmField

@@ -43,6 +43,7 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.eclipse.tm4e.core.registry.IThemeSource
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.exitProcess
@@ -107,6 +108,8 @@ class App : Application(), coil3.SingletonImageLoader.Factory {
         appContext = this
 
         cleanOnExitDir()
+
+        PDFBoxResourceLoader.init(this)
     }
 
     fun cleanOnExitDir() {

@@ -1,6 +1,7 @@
 package com.raival.compose.file.explorer.screen.viewer.pdf.ui
 
 import android.util.Size
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +13,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -20,16 +24,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.R
 import com.raival.compose.file.explorer.common.isNot
 import com.raival.compose.file.explorer.screen.viewer.pdf.PdfViewerInstance
+import com.raival.compose.file.explorer.screen.viewer.pdf.misc.PdfFormField
 import com.raival.compose.file.explorer.screen.viewer.pdf.misc.PdfPageHolder
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.nanihadesuka.compose.InternalLazyColumnScrollbar
 import my.nanihadesuka.compose.ScrollbarLayoutSide
@@ -52,9 +60,15 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
         val pdfPages = remember { mutableStateListOf<PdfPageHolder>() }
         var showInfoDialog by remember { mutableStateOf(false) }
 
+        var isEditMode by remember { mutableStateOf(false) }
+        val formFieldsByPage = remember { mutableStateListOf<PdfFormField>() }
+
         val listState = rememberLazyListState()
         val zoomState = rememberZoomState()
         var defaultPageSize by remember { mutableStateOf(Size(0, 0)) }
+        val coroutineScope = rememberCoroutineScope()
+        val context = LocalContext.current
+
         val isFirstItemVisible by remember {
             derivedStateOf {
                 listState.firstVisibleItemIndex == 0
@@ -89,6 +103,11 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                             instance.defaultPageSize.height * constraints.maxWidth / instance.defaultPageSize.width
                         )
                         pdfPages.addAll(instance.pages)
+
+                        if (instance.hasFormFields) {
+                            formFieldsByPage.addAll(instance.getFormFields())
+                        }
+
                         isLoading = false
                     } else {
                         errorMessage = globalClass.getString(R.string.failed_to_load_pdf)
@@ -137,11 +156,21 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                         items = pdfPages,
                         key = { it.index }
                     ) { page ->
+                        val pageFormFields = formFieldsByPage.filter { it.pageIndex == page.index }
                         PdfPageItem(
                             page = page,
                             pageSize = defaultPageSize,
                             instance = instance,
-                            zoomState = zoomState
+                            zoomState = zoomState,
+                            isEditMode = isEditMode,
+                            formFields = pageFormFields,
+                            onFormFieldChange = { field, newValue ->
+                                instance.fillFormField(field.fullyQualifiedName, newValue)
+                                val index = formFieldsByPage.indexOfFirst { it.fullyQualifiedName == field.fullyQualifiedName }
+                                if (index >= 0) {
+                                    formFieldsByPage[index] = field.copy(value = newValue)
+                                }
+                            }
                         )
                     }
                 }
@@ -170,6 +199,23 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                     onBackClick = onBackPress,
                     onInfoClick = {
                         showInfoDialog = true
+                    },
+                    isEditMode = isEditMode,
+                    hasUnsavedChanges = instance.hasUnsavedFormChanges,
+                    onEditModeToggle = {
+                        isEditMode = !isEditMode
+                    },
+                    onSaveClick = {
+                        coroutineScope.launch {
+                            instance.savePdf { success, message ->
+                                if (!success) {
+                                    Toast.makeText(context, message ?: globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, globalClass.getString(R.string.saved_successfully), Toast.LENGTH_SHORT).show()
+                                }
+                                isEditMode = false
+                            }
+                        }
                     }
                 )
             }

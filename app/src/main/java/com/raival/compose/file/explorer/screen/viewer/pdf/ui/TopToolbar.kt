@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +38,11 @@ fun TopToolbar(
     visible: Boolean,
     title: String,
     onBackClick: () -> Unit,
-    onInfoClick: () -> Unit
+    onInfoClick: () -> Unit,
+    isEditMode: Boolean,
+    hasUnsavedChanges: Boolean,
+    onEditModeToggle: () -> Unit,
+    onSaveClick: () -> Unit
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -85,6 +92,38 @@ fun TopToolbar(
                         overflow = TextOverflow.Ellipsis,
                         color = colorScheme.onSurface
                     )
+                }
+
+                if (isEditMode) {
+                    AnimatedVisibility(visible = hasUnsavedChanges) {
+                        IconButton(onClick = onSaveClick) {
+                            Icon(
+                                imageVector = Icons.Rounded.Save,
+                                contentDescription = "Save",
+                                tint = colorScheme.primary
+                            )
+                        }
+                    }
+                    IconButton(onClick = {
+                        onEditModeToggle()
+                        onSaveClick()
+                    }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = "Apply and save",
+                            tint = colorScheme.primary
+                        )
+                    }
+                }
+
+                if (!isEditMode) {
+                    IconButton(onClick = onEditModeToggle) {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = "Edit",
+                            tint = colorScheme.onSurface
+                        )
+                    }
                 }
 
                 IconButton(onClick = onInfoClick) {
