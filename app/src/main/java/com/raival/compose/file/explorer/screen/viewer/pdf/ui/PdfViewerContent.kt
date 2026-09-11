@@ -7,15 +7,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,6 +68,7 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
 
         var isEditMode by remember { mutableStateOf(false) }
         val formFieldsByPage = remember { mutableStateListOf<PdfFormField>() }
+        var isExporting by remember { mutableStateOf(false) }
 
         val listState = rememberLazyListState()
         val zoomState = rememberZoomState()
@@ -89,7 +93,10 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                     } else {
                         Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
                     }
+                    isExporting = false
                 }
+            } else {
+                isExporting = false
             }
         }
         val odfSaveLauncher = rememberLauncherForActivityResult(
@@ -110,7 +117,10 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                     } else {
                         Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
                     }
+                    isExporting = false
                 }
+            } else {
+                isExporting = false
             }
         }
 
@@ -263,12 +273,31 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                         }
                     },
                     onExportMarkdown = {
+                        isExporting = true
                         markdownSaveLauncher.launch("markdown.md")
                     },
                     onExportOdf = {
+                        isExporting = true
                         odfSaveLauncher.launch("document.odt")
                     }
                 )
+
+                if (isExporting) {
+                    AlertDialog(
+                        onDismissRequest = {},
+                        confirmButton = {},
+                        title = { Text("Exporting") },
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                Text("Please wait...")
+                            }
+                        }
+                    )
+                }
             }
         }
     }
