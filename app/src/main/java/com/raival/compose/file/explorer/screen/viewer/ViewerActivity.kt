@@ -12,9 +12,10 @@ abstract class ViewerActivity : BaseActivity() {
     private var uri: Uri? = null
     private var uid: String = emptyString
     private var currentInstance: ViewerInstance? = null
+    private var parentDir: String? = null
 
     abstract fun onCreateNewInstance(uri: Uri, uid: String): ViewerInstance
-    abstract fun onReady(instance: ViewerInstance)
+    abstract fun onReady(instance: ViewerInstance, parentDir: String?)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +28,7 @@ abstract class ViewerActivity : BaseActivity() {
         }
 
         uri = intent.data
+        parentDir = intent.getStringExtra("parent_dir")
 
         if (savedInstanceState != null) {
             uid = savedInstanceState.getString("uid", String.randomString(12))
@@ -59,6 +61,6 @@ abstract class ViewerActivity : BaseActivity() {
     }
 
     override fun onPermissionGranted() {
-        onReady(currentInstance!!)
+        onReady(currentInstance!!, parentDir)
     }
 }

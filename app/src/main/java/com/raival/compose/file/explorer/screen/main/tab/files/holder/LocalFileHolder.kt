@@ -247,6 +247,7 @@ class LocalFileHolder(val file: File) : ContentHolder() {
             )
             setPackage(packageName)
             setClassName(packageName, className)
+            putExtra("parent_dir", file.parentFile?.absolutePath)
         }
 
         if (intent.resolveActivity(globalClass.packageManager) != null) {

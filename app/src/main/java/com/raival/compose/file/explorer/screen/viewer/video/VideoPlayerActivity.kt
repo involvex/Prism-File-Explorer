@@ -15,7 +15,7 @@ class VideoPlayerActivity : ViewerActivity() {
         return VideoPlayerInstance(uri, uid)
     }
 
-    override fun onReady(instance: ViewerInstance) {
+    override fun onReady(instance: ViewerInstance, parentDir: String?) {
         val videoPlayerInstance = instance as VideoPlayerInstance
         setContent {
             FileExplorerTheme {

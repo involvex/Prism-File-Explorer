@@ -508,6 +508,38 @@ class PdfViewerInstance(
         zipOutput.close()
     }
 
+    fun saveMarkdownToFolder(folder: String): File? {
+        return try {
+            val doc = pdDocument
+            if (doc == null) return null
+            val stripper = PDFTextStripper()
+            val text = stripper.getText(doc)
+            val baseName = uri.name?.substringBeforeLast('.', "export") ?: "export"
+            val outputFile = File(File(folder), "${baseName}.md")
+            outputFile.writeText(formatAsMarkdown(text))
+            outputFile
+        } catch (e: Exception) {
+            logger.logError(e)
+            null
+        }
+    }
+
+    fun saveOdfToFolder(folder: String): File? {
+        return try {
+            val doc = pdDocument
+            if (doc == null) return null
+            val stripper = PDFTextStripper()
+            val text = stripper.getText(doc)
+            val baseName = uri.name?.substringBeforeLast('.', "export") ?: "export"
+            val outputFile = File(File(folder), "${baseName}.odt")
+            createOdfFromText(text, outputFile)
+            outputFile
+        } catch (e: Exception) {
+            logger.logError(e)
+            null
+        }
+    }
+
     override fun onClose() {
         runBlocking {
             try {

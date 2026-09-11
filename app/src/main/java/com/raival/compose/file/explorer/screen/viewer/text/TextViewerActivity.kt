@@ -59,7 +59,7 @@ class TextViewerActivity : ViewerActivity() {
         return TextViewerInstance(uri, uid)
     }
 
-    override fun onReady(instance: ViewerInstance) {
+    override fun onReady(instance: ViewerInstance, parentDir: String?) {
         val textViewerInstance = instance as TextViewerInstance
         codeEditor = textViewerInstance.createCodeEditorView(this)
         setContent {

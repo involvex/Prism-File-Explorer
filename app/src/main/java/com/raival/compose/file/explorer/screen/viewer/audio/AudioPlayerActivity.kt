@@ -15,7 +15,7 @@ class AudioPlayerActivity : ViewerActivity() {
         return AudioPlayerInstance(uri, uid)
     }
 
-    override fun onReady(instance: ViewerInstance) {
+    override fun onReady(instance: ViewerInstance, parentDir: String?) {
         setContent {
             FileExplorerTheme {
                 MusicPlayerScreen(

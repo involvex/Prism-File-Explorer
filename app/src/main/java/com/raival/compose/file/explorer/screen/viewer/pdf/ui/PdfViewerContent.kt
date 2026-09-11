@@ -54,7 +54,11 @@ import java.io.File
 
 @OptIn(ExperimentalZoomableApi::class)
 @Composable
-fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
+fun PdfViewerContent(
+    instance: PdfViewerInstance,
+    parentDir: String? = null,
+    onBackPress: () -> Unit
+) {
     BoxWithConstraints(
         Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter
@@ -69,6 +73,7 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
         var isEditMode by remember { mutableStateOf(false) }
         val formFieldsByPage = remember { mutableStateListOf<PdfFormField>() }
         var isExporting by remember { mutableStateOf(false) }
+        var showExportChoice by remember { mutableStateOf<ExportType?>(null) }
 
         val listState = rememberLazyListState()
         val zoomState = rememberZoomState()
@@ -273,12 +278,20 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                         }
                     },
                     onExportMarkdown = {
-                        isExporting = true
-                        markdownSaveLauncher.launch("markdown.md")
+                        if (parentDir != null) {
+                            showExportChoice = ExportType.MARKDOWN
+                        } else {
+                            isExporting = true
+                            markdownSaveLauncher.launch("markdown.md")
+                        }
                     },
                     onExportOdf = {
-                        isExporting = true
-                        odfSaveLauncher.launch("document.odt")
+                        if (parentDir != null) {
+                            showExportChoice = ExportType.ODF
+                        } else {
+                            isExporting = true
+                            odfSaveLauncher.launch("document.odt")
+                        }
                     }
                 )
 
@@ -298,7 +311,54 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                         }
                     )
                 }
+
+                if (showExportChoice != null) {
+                    val exportType = showExportChoice!!
+                    AlertDialog(
+                        onDismissRequest = { showExportChoice = null },
+                        confirmButton = { TextButton(onClick = {
+                            isExporting = true
+                            showExportChoice = null
+                            when (exportType) {
+                                ExportType.MARKDOWN -> {
+                                    coroutineScope.launch {
+                                        val result = instance.saveMarkdownToFolder(parentDir!!)
+                                        if (result != null) {
+                                            Toast.makeText(context, globalClass.getString(R.string.saved_successfully) + ": " + result.name, Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                                        }
+                                        isExporting = false
+                                    }
+                                }
+                                ExportType.ODF -> {
+                                    coroutineScope.launch {
+                                        val result = instance.saveOdfToFolder(parentDir!!)
+                                        if (result != null) {
+                                            Toast.makeText(context, globalClass.getString(R.string.saved_successfully) + ": " + result.name, Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                                        }
+                                        isExporting = false
+                                    }
+                                }
+                            }
+                        }) { Text("Save to folder") } },
+                        dismissButton = { TextButton(onClick = {
+                            showExportChoice = null
+                            when (exportType) {
+                                ExportType.MARKDOWN -> markdownSaveLauncher.launch("markdown.md")
+                                ExportType.ODF -> odfSaveLauncher.launch("document.odt")
+                            }
+                            isExporting = true
+                        }) { Text("Save as...") } },
+                        title = { Text("Save Location") },
+                        text = { Text("Save to current folder or choose another location?") }
+                    )
+                }
             }
         }
     }
 }
+
+private enum class ExportType { MARKDOWN, ODF }

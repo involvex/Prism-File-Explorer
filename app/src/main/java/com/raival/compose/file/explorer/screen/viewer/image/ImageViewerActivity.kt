@@ -13,7 +13,7 @@ class ImageViewerActivity : ViewerActivity() {
         return ImageViewerInstance(uri, uid)
     }
 
-    override fun onReady(instance: ViewerInstance) {
+    override fun onReady(instance: ViewerInstance, parentDir: String?) {
         setContent {
             FileExplorerTheme {
                 SafeSurface(enableStatusBarsPadding = false) {

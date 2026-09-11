@@ -17,13 +17,14 @@ class PdfViewerActivity : ViewerActivity() {
     }
 
     @OptIn(ExperimentalZoomableApi::class)
-    override fun onReady(instance: ViewerInstance) {
+    override fun onReady(instance: ViewerInstance, parentDir: String?) {
         if (instance is PdfViewerInstance) {
             setContent {
                 FileExplorerTheme {
                     SafeSurface(false) {
                         PdfViewerContent(
                             instance = instance,
+                            parentDir = parentDir,
                             onBackPress = { onBackPressedDispatcher.onBackPressed() }
                         )
                     }
