@@ -34,6 +34,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.form.PDCheckBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDRadioButton
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDListBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -421,6 +422,90 @@ class PdfViewerInstance(
                 onResult(false, globalClass.getString(R.string.failed_to_save_pdf))
             }
         }
+    }
+
+    fun exportToMarkdown(output: File): Boolean {
+        return try {
+            val doc = pdDocument
+            if (doc == null) return false
+            val stripper = PDFTextStripper()
+            val text = stripper.getText(doc)
+            output.writeText(formatAsMarkdown(text))
+            true
+        } catch (e: Exception) {
+            logger.logError(e)
+            false
+        }
+    }
+
+    private fun formatAsMarkdown(text: String): String {
+        val lines = text.lines()
+        val result = StringBuilder()
+        var prevBlank = false
+
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) {
+                if (!prevBlank) {
+                    result.append("\n")
+                }
+                prevBlank = true
+            } else {
+                result.append(trimmed).append("\n")
+                prevBlank = false
+            }
+        }
+
+        return result.toString().trim() + "\n"
+    }
+
+    fun exportToOdf(output: File): Boolean {
+        return try {
+            val doc = pdDocument
+            if (doc == null) return false
+            val stripper = PDFTextStripper()
+            val text = stripper.getText(doc)
+            createOdfFromText(text, output)
+            true
+        } catch (e: Exception) {
+            logger.logError(e)
+            false
+        }
+    }
+
+    private fun createOdfFromText(text: String, output: File) {
+        val escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+        val contentXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.2">
+                <office:body>
+                    <office:text>
+                        <text:p>$escapedText</text:p>
+                    </office:text>
+                </office:body>
+            </office:document-content>
+        """.trimIndent()
+
+        val manifestXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">
+                <manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.text" manifest:full-path="/"/>
+                <manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/>
+            </manifest:manifest>
+        """.trimIndent()
+
+        val zipOutput = java.util.zip.ZipOutputStream(FileOutputStream(output))
+        zipOutput.putNextEntry(java.util.zip.ZipEntry("mimetype"))
+        zipOutput.write("application/vnd.oasis.opendocument.text".toByteArray())
+        zipOutput.closeEntry()
+        zipOutput.putNextEntry(java.util.zip.ZipEntry("content.xml"))
+        zipOutput.write(contentXml.toByteArray())
+        zipOutput.closeEntry()
+        zipOutput.putNextEntry(java.util.zip.ZipEntry("META-INF/manifest.xml"))
+        zipOutput.write(manifestXml.toByteArray())
+        zipOutput.closeEntry()
+        zipOutput.close()
     }
 
     override fun onClose() {

@@ -147,6 +147,10 @@
     <string name="choose_number_of_columns">Choose number of columns</string>
     <string name="title_activity_pdf_viewer">PDF Viewer</string>
     <string name="title_activity_document_viewer">Document Viewer</string>
+    <string name="conversion_failed">Conversion Failed</string>
+    <string name="conversion_failed_msg">Unable to convert this document. It may be corrupted or in an unsupported format.</string>
+    <string name="conversion_failed_retry">Retry</string>
+    <string name="conversion_failed_open_in">Open in external app</string>
     <string name="unknown">Unknown</string>
     <string name="page_count">Page Count</string>
     <string name="title_activity_image_viewer">Image Viewer</string>

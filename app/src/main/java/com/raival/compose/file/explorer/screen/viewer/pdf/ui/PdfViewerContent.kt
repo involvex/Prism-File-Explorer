@@ -2,6 +2,8 @@ package com.raival.compose.file.explorer.screen.viewer.pdf.ui
 
 import android.util.Size
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
@@ -45,6 +47,7 @@ import my.nanihadesuka.compose.ScrollbarSettings
 import net.engawapg.lib.zoomable.ExperimentalZoomableApi
 import net.engawapg.lib.zoomable.rememberZoomState
 import net.engawapg.lib.zoomable.zoomableWithScroll
+import java.io.File
 
 @OptIn(ExperimentalZoomableApi::class)
 @Composable
@@ -68,6 +71,48 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
         var defaultPageSize by remember { mutableStateOf(Size(0, 0)) }
         val coroutineScope = rememberCoroutineScope()
         val context = LocalContext.current
+        val markdownSaveLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("text/markdown")
+        ) { uri: android.net.Uri? ->
+            if (uri != null) {
+                coroutineScope.launch {
+                    val tempFile = File.createTempFile("export", ".md", globalClass.cleanOnExitDir.file)
+                    val success = instance.exportToMarkdown(tempFile)
+                    if (success) {
+                        globalClass.contentResolver.openOutputStream(uri)?.use { output ->
+                            tempFile.inputStream().use { input ->
+                                input.copyTo(output)
+                            }
+                        }
+                        tempFile.delete()
+                        Toast.makeText(context, globalClass.getString(R.string.saved_successfully), Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+        val odfSaveLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/vnd.oasis.opendocument.text")
+        ) { uri: android.net.Uri? ->
+            if (uri != null) {
+                coroutineScope.launch {
+                    val tempFile = File.createTempFile("export", ".odt", globalClass.cleanOnExitDir.file)
+                    val success = instance.exportToOdf(tempFile)
+                    if (success) {
+                        globalClass.contentResolver.openOutputStream(uri)?.use { output ->
+                            tempFile.inputStream().use { input ->
+                                input.copyTo(output)
+                            }
+                        }
+                        tempFile.delete()
+                        Toast.makeText(context, globalClass.getString(R.string.saved_successfully), Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
 
         val isFirstItemVisible by remember {
             derivedStateOf {
@@ -216,6 +261,12 @@ fun PdfViewerContent(instance: PdfViewerInstance, onBackPress: () -> Unit) {
                                 isEditMode = false
                             }
                         }
+                    },
+                    onExportMarkdown = {
+                        markdownSaveLauncher.launch("markdown.md")
+                    },
+                    onExportOdf = {
+                        odfSaveLauncher.launch("document.odt")
                     }
                 )
             }

@@ -21,13 +21,21 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,7 +50,9 @@ fun TopToolbar(
     isEditMode: Boolean,
     hasUnsavedChanges: Boolean,
     onEditModeToggle: () -> Unit,
-    onSaveClick: () -> Unit
+    onSaveClick: () -> Unit,
+    onExportMarkdown: () -> Unit,
+    onExportOdf: () -> Unit
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -124,6 +134,36 @@ fun TopToolbar(
                             tint = colorScheme.onSurface
                         )
                     }
+                }
+
+                var showMoreMenu by remember { mutableStateOf(false) }
+
+                IconButton(onClick = { showMoreMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = null,
+                        tint = colorScheme.onSurface
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showMoreMenu,
+                    onDismissRequest = { showMoreMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        onClick = {
+                            showMoreMenu = false
+                            onExportMarkdown()
+                        },
+                        text = { Text("Export as Markdown") }
+                    )
+                    DropdownMenuItem(
+                        onClick = {
+                            showMoreMenu = false
+                            onExportOdf()
+                        },
+                        text = { Text("Export as ODF") }
+                    )
                 }
 
                 IconButton(onClick = onInfoClick) {

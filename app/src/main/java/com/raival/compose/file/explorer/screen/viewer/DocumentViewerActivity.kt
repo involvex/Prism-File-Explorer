@@ -2,6 +2,9 @@ package com.raival.compose.file.explorer.screen.viewer
 
 import android.net.Uri
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.core.content.FileProvider
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.R
@@ -17,6 +20,8 @@ import net.engawapg.lib.zoomable.ExperimentalZoomableApi
 import java.io.File
 
 class DocumentViewerActivity : ViewerActivity() {
+    private var conversionError: String? = null
+
     override fun onCreateNewInstance(uri: Uri, uid: String): ViewerInstance {
         val outputFile = File(globalClass.cleanOnExitDir.file, "doc_${System.currentTimeMillis()}.pdf")
         val converter = DocumentConverter()
@@ -34,6 +39,7 @@ class DocumentViewerActivity : ViewerActivity() {
             )
             PdfViewerInstance(pdfUri, uid)
         } else {
+            conversionError = globalClass.getString(R.string.conversion_failed_msg)
             DocumentViewerInstance(uri, uid)
         }
     }
@@ -54,8 +60,16 @@ class DocumentViewerActivity : ViewerActivity() {
                 }
             }
             else -> {
-                globalClass.showMsg(getString(R.string.failed_to_load_pdf))
-                finish()
+                setContent {
+                    FileExplorerTheme {
+                        SafeSurface(false) {
+                            ConversionErrorDialog(
+                                message = conversionError ?: getString(R.string.conversion_failed),
+                                onDismiss = { finish() }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
