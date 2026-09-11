@@ -44,6 +44,13 @@
 -keep class org.apache.poi.poifs.** { *; }
 -keep class org.apache.poi.openxml4j.opc.** { *; }
 -dontwarn org.apache.poi.**
+-dontwarn org.apache.logging.**
+-dontwarn aQute.bnd.annotation.**
+-dontwarn java.awt.**
+-dontwarn javax.xml.stream.**
+-dontwarn net.sf.saxon.**
+-dontwarn com.gemalto.jp2.**
+-dontwarn org.osgi.framework.**
 
 -keepnames interface * { *; }
 
