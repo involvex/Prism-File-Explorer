@@ -13,6 +13,8 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHold
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ShizukuFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.sftp.SftpManager
+import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
 import com.reandroid.archive.ZipAlign
 import kotlinx.coroutines.runBlocking
@@ -175,6 +177,18 @@ class CopyTask(
             }
         }
 
+        // Prevent copying SFTP directory into itself (same server)
+        if (firstSource is SftpFileHolder && destHolder is SftpFileHolder) {
+            if (firstSource.server.id == destHolder.server.id) {
+                val srcPath = firstSource.normalizedPath
+                val destPath = destHolder.normalizedPath
+                if (destPath == srcPath || destPath.startsWith("$srcPath/")) {
+                    markAsFailed(globalClass.resources.getString(R.string.task_summary_invalid_dest))
+                    return false
+                }
+            }
+        }
+
         return true
     }
 
@@ -204,6 +218,15 @@ class CopyTask(
 
             sample is LocalFileHolder && destHolder is ShizukuFileHolder ->
                 copyLocalFilesToShizuku(sourcePath, destHolder)
+
+            sample is LocalFileHolder && destHolder is SftpFileHolder ->
+                copyLocalFilesToSftp(sourcePath, destHolder)
+
+            sample is SftpFileHolder && destHolder is LocalFileHolder ->
+                copySftpFilesToLocal(sourcePath, destHolder)
+
+            sample is SftpFileHolder && destHolder is SftpFileHolder ->
+                copySftpFilesToSftp(sourcePath, destHolder)
 
             else ->
                 throw IllegalStateException(globalClass.getString(R.string.unsupported_source_destination_combination))
@@ -246,6 +269,8 @@ class CopyTask(
         var hasInvalidNesting = false
         val isSameZipFiles = (sourceFiles.first() is ZipFileHolder && destHolder is ZipFileHolder)
                 && (sourceFiles.first() as ZipFileHolder).zipTree.source.uniquePath == destHolder.zipTree.source.uniquePath
+        val isSameSftpServer = (sourceFiles.first() is SftpFileHolder && destHolder is SftpFileHolder)
+                && (sourceFiles.first() as SftpFileHolder).server.id == destHolder.server.id
 
         if (pendingFiles.isEmpty()) {
             sourceFiles.forEach { source ->
@@ -253,7 +278,8 @@ class CopyTask(
                 if (deleteSourceFiles
                     && source.isFolder
                     && (((source is ZipFileHolder && destHolder is ZipFileHolder) && (isSameZipFiles))
-                            || (source is LocalFileHolder && destHolder is LocalFileHolder))
+                            || (source is LocalFileHolder && destHolder is LocalFileHolder)
+                            || (source is SftpFileHolder && destHolder is SftpFileHolder && isSameSftpServer))
                 ) {
                     val destPath = destHolder.uniquePath
                     if (!hasInvalidNesting && destPath.startsWith(source.uniquePath)) {
@@ -314,6 +340,30 @@ class CopyTask(
             is LocalFileHolder -> deleteLocalSources()
             is ZipFileHolder -> deleteZipSources(sample)
             is ShizukuFileHolder -> deleteShizukuSources(sample)
+            is SftpFileHolder -> deleteSftpSources()
+        }
+    }
+
+    private fun deleteSftpSources() {
+        val successfulItems = pendingFiles.filter { it.status == TaskContentStatus.SUCCESS }
+
+        successfulItems.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            progressMonitor.apply {
+                remainingContent = successfulItems.size - (index + 1)
+                contentName = item.content.displayName
+                progress = (index + 1f) / successfulItems.size
+            }
+
+            runBlocking {
+                runCatching {
+                    (item.content as SftpFileHolder).deleteRemote(recursive = true)
+                }.onFailure { logger.logError(it) }
+            }
         }
     }
 
@@ -1067,6 +1117,263 @@ class CopyTask(
         return globalClass.shizukuManager.runShellCommand(command)
     }
 
+    // ---------- SFTP transfers ----------
+
+    private fun copyLocalFilesToSftp(sourcePath: String, destinationHolder: SftpFileHolder) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        pendingFiles.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            if (item.status isNot TaskContentStatus.PENDING
+                && item.status isNot TaskContentStatus.REPLACE
+                && item.status isNot TaskContentStatus.CONFLICT
+            ) {
+                return@forEachIndexed
+            }
+
+            val sourceFile = (item.content as LocalFileHolder).file
+            val destPath =
+                SftpManager.join(destinationHolder.normalizedPath, item.relativePath)
+
+            updateProgress(index, sourceFile.name)
+
+            if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                return
+            }
+
+            if (item.status == TaskContentStatus.PENDING) {
+                val exists = runBlocking {
+                    runCatching {
+                        globalClass.sftpManager.stat(destinationHolder.server, destPath)
+                    }.getOrNull() != null
+                }
+                if (exists && !handleConflict(item)) {
+                    return
+                }
+            }
+
+            when (item.status) {
+                TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                    item.status = if (runCatching {
+                            if (sourceFile.isDirectory) {
+                                runBlocking {
+                                    runCatching {
+                                        globalClass.sftpManager.mkdir(
+                                            destinationHolder.server,
+                                            destPath
+                                        )
+                                    }
+                                }
+                                true
+                            } else {
+                                runBlocking {
+                                    globalClass.sftpManager.uploadFromLocal(
+                                        destinationHolder.server,
+                                        sourceFile,
+                                        destPath
+                                    )
+                                }
+                                true
+                            }
+                        }.getOrElse {
+                            logger.logError(it)
+                            false
+                        }
+                    ) {
+                        TaskContentStatus.SUCCESS
+                    } else {
+                        TaskContentStatus.FAILED
+                    }
+                }
+
+                else -> { /* Already handled */ }
+            }
+        }
+    }
+
+    private fun copySftpFilesToLocal(sourcePath: String, destinationHolder: LocalFileHolder) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        pendingFiles.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            if (item.status isNot TaskContentStatus.PENDING
+                && item.status isNot TaskContentStatus.REPLACE
+                && item.status isNot TaskContentStatus.CONFLICT
+            ) {
+                return@forEachIndexed
+            }
+
+            val sourceHolder = item.content as SftpFileHolder
+            val destinationFile = File(destinationHolder.file, item.relativePath)
+
+            updateProgress(index, sourceHolder.displayName)
+
+            if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                return
+            }
+
+            if (item.status == TaskContentStatus.PENDING) {
+                val conflictExists = destinationFile.exists() && destinationFile.isFile
+                if (conflictExists && !handleConflict(item)) {
+                    return
+                }
+            }
+
+            when (item.status) {
+                TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                    item.status = if (runCatching {
+                            if (sourceHolder.isFolder) {
+                                destinationFile.mkdirs()
+                                true
+                            } else {
+                                runBlocking {
+                                    sourceHolder.downloadTo(destinationFile)
+                                }
+                                true
+                            }
+                        }.getOrElse {
+                            logger.logError(it)
+                            false
+                        }
+                    ) {
+                        TaskContentStatus.SUCCESS
+                    } else {
+                        TaskContentStatus.FAILED
+                    }
+                }
+
+                else -> { /* Already handled */ }
+            }
+        }
+    }
+
+    private fun copySftpFilesToSftp(sourcePath: String, destinationHolder: SftpFileHolder) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        val tempDir = File(globalClass.cacheDir, "sftp_copy_${System.currentTimeMillis()}")
+        tempDir.mkdirs()
+
+        try {
+            pendingFiles.forEachIndexed { index, item ->
+                if (aborted) {
+                    progressMonitor.status = TaskStatus.PAUSED
+                    return
+                }
+
+                if (item.status isNot TaskContentStatus.PENDING
+                    && item.status isNot TaskContentStatus.REPLACE
+                    && item.status isNot TaskContentStatus.CONFLICT
+                ) {
+                    return@forEachIndexed
+                }
+
+                val sourceHolder = item.content as SftpFileHolder
+                val destPath =
+                    SftpManager.join(destinationHolder.normalizedPath, item.relativePath)
+
+                updateProgress(index, sourceHolder.displayName)
+
+                if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                    return
+                }
+
+                if (item.status == TaskContentStatus.PENDING) {
+                    val exists = runBlocking {
+                        runCatching {
+                            globalClass.sftpManager.stat(destinationHolder.server, destPath)
+                        }.getOrNull() != null
+                    }
+                    if (exists && !handleConflict(item)) {
+                        return
+                    }
+                }
+
+                when (item.status) {
+                    TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                        item.status = if (runCatching {
+                                if (sourceHolder.isFolder) {
+                                    runBlocking {
+                                        runCatching {
+                                            globalClass.sftpManager.mkdir(
+                                                destinationHolder.server,
+                                                destPath
+                                            )
+                                        }
+                                    }
+                                    true
+                                } else {
+                                    runBlocking {
+                                        val tmp = File(
+                                            tempDir,
+                                            "${System.nanoTime()}_${sourceHolder.displayName}"
+                                        )
+                                        sourceHolder.downloadTo(tmp)
+                                        globalClass.sftpManager.uploadFromLocal(
+                                            destinationHolder.server,
+                                            tmp,
+                                            destPath
+                                        )
+                                        tmp.delete()
+                                    }
+                                    true
+                                }
+                            }.getOrElse {
+                                logger.logError(it)
+                                false
+                            }
+                        ) {
+                            TaskContentStatus.SUCCESS
+                        } else {
+                            TaskContentStatus.FAILED
+                        }
+                    }
+
+                    else -> { /* Already handled */ }
+                }
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
     private fun createZipEntryPath(basePath: String, relativePath: String): String {
         return if (basePath.isEmpty()) {
             relativePath
@@ -1137,7 +1444,53 @@ class CopyTask(
                 }
             }
 
+            is SftpFileHolder -> {
+                runBlocking {
+                    listSftpRecursive(startFile)
+                }
+            }
+
             else -> emptyList()
         }
+    }
+
+    private suspend fun listSftpRecursive(startFile: SftpFileHolder): List<TaskContentItem> {
+        if (startFile.isFile()) {
+            return listOf(
+                TaskContentItem(
+                    content = startFile,
+                    relativePath = startFile.displayName,
+                    status = TaskContentStatus.PENDING
+                )
+            )
+        }
+        val result = arrayListOf<TaskContentItem>()
+        // Include the top directory itself so it gets created at the destination
+        result.add(
+            TaskContentItem(
+                content = startFile,
+                relativePath = startFile.displayName,
+                status = TaskContentStatus.PENDING
+            )
+        )
+        suspend fun walk(folder: SftpFileHolder, prefix: String) {
+            val children = runCatching {
+                globalClass.sftpManager.listDir(folder.server, folder.normalizedPath)
+            }.getOrNull() ?: return
+            children.forEach { entry ->
+                val child = SftpFileHolder(folder.server, entry.path)
+                val rel = "$prefix/${entry.name}"
+                result.add(
+                    TaskContentItem(
+                        content = child,
+                        relativePath = rel,
+                        status = TaskContentStatus.PENDING
+                    )
+                )
+                if (entry.isDirectory) walk(child, rel)
+            }
+        }
+        walk(startFile, startFile.displayName)
+        return result
     }
 }

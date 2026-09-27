@@ -29,6 +29,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHo
 import com.raival.compose.file.explorer.screen.main.tab.files.search.SearchManager
 import com.raival.compose.file.explorer.screen.main.tab.files.task.TaskManager
 import com.raival.compose.file.explorer.screen.main.tab.files.zip.ZipManager
+import com.raival.compose.file.explorer.screen.main.tab.sftp.SftpManager
 import com.raival.compose.file.explorer.screen.preferences.PreferencesManager
 import com.raival.compose.file.explorer.screen.textEditor.TextEditorManager
 import com.raival.compose.file.explorer.screen.viewer.ViewersManager
@@ -98,6 +99,7 @@ class App : Application(), coil3.SingletonImageLoader.Factory {
     val zipManager: ZipManager by lazy { ZipManager() }
     val searchManager: SearchManager by lazy { SearchManager() }
     val shizukuManager: ShizukuManager by lazy { ShizukuManager() }
+    val sftpManager: SftpManager by lazy { SftpManager() }
 
     override fun onCreate() {
         super.onCreate()

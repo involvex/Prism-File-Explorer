@@ -147,6 +147,18 @@ class PreferencesManager {
         getPreferencesKey = { stringSetPreferencesKey(it) }
     )
 
+    var sftpServers by prefMutableState(
+        keyName = "sftpServers",
+        defaultValue = "[]",
+        getPreferencesKey = { stringPreferencesKey(it) }
+    )
+
+    var sftpKnownHosts by prefMutableState(
+        keyName = "sftpKnownHosts",
+        defaultValue = "{}",
+        getPreferencesKey = { stringPreferencesKey(it) }
+    )
+
     var excludedPathsFromRecentFiles by prefMutableState(
         keyName = "excludedPathFromRecentFiles",
         defaultValue = emptySet(),

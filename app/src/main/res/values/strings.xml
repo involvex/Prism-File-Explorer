@@ -486,4 +486,23 @@
     <string name="disable_recycle_bin_desc">Permanently delete files instead of moving to recycle bin</string>
     <string name="refresh_shizuku_status">Refresh Status</string>
     <string name="hacker">Hacker</string>
+    <string name="sftp_servers">Servers</string>
+    <string name="sftp_servers_desc">Saved SFTP servers</string>
+    <string name="no_sftp_servers">No saved servers</string>
+    <string name="add_sftp_server">Add SFTP server</string>
+    <string name="edit_sftp_server">Edit SFTP server</string>
+    <string name="sftp_name">Nickname (optional)</string>
+    <string name="sftp_host">Host</string>
+    <string name="sftp_port">Port</string>
+    <string name="sftp_username">Username</string>
+    <string name="sftp_password">Password</string>
+    <string name="sftp_remote_path">Remote path</string>
+    <string name="sftp_test_connection">Test connection</string>
+    <string name="sftp_testing">Testing…</string>
+    <string name="sftp_connection_ok">Connection successful</string>
+    <string name="sftp_connection_failed">Connection failed: %1$s</string>
+    <string name="sftp_missing_password">Saved password missing, please edit and re-enter</string>
+    <string name="sftp_invalid_input">Please fill host, username and password</string>
+    <string name="sftp_disconnect">Disconnect</string>
+    <string name="sftp_delete_confirm">Delete this server?</string>
 </resources>

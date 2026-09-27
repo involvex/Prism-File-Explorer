@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.rounded.ArrowOutward
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Storage
@@ -284,6 +285,7 @@ fun HomeSectionType.getIcon(): ImageVector {
         HomeSectionType.RECYCLE_BIN -> Icons.Rounded.DeleteSweep
         HomeSectionType.JUMP_TO_PATH -> Icons.Rounded.ArrowOutward
         HomeSectionType.PINNED_FILES -> PrismIcons.Pin
+        HomeSectionType.SERVERS -> Icons.Rounded.Cloud
     }
 }
 
@@ -296,5 +298,6 @@ fun HomeSectionType.getDescription(): String {
         HomeSectionType.RECYCLE_BIN -> globalClass.getString(R.string.deleted_files)
         HomeSectionType.JUMP_TO_PATH -> globalClass.getString(R.string.quick_path_navigation)
         HomeSectionType.PINNED_FILES -> globalClass.getString(R.string.pinned_files_desc)
+        HomeSectionType.SERVERS -> globalClass.getString(R.string.sftp_servers_desc)
     }
 }

@@ -30,6 +30,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHold
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.VirtualFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileListCategory
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.anyFileType
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
@@ -216,11 +217,17 @@ class FilesTab(
             return true
         } else if (handleBackGesture) {
             scope.launch {
-                highlightedFiles.apply {
-                    clear()
-                    add(activeFolder.uniquePath)
+                // getParent() is null at filesystem roots (e.g. SFTP "/");
+                // handleBackGesture can still be true before the first folder
+                // load completes, so never force-unwrap here.
+                val parent = activeFolder.getParent()
+                if (parent != null) {
+                    highlightedFiles.apply {
+                        clear()
+                        add(activeFolder.uniquePath)
+                    }
+                    openFolderImpl(parent)
                 }
-                openFolderImpl(activeFolder.getParent()!!)
             }
 
             return true
@@ -439,6 +446,24 @@ class FilesTab(
                 reloadFiles()
                 return true
             }
+        } else if (activeFolder is SftpFileHolder) {
+            val newContent = runCatching {
+                (activeFolder as SftpFileHolder).listContent()
+            }.getOrNull()
+            // Check if the content size has changed
+            if (newContent != null && newContent.size != activeFolderContent.size) {
+                reloadFiles()
+                return true
+            }
+            // Check if any entry appeared/disappeared by path
+            if (newContent != null) {
+                val oldPaths = activeFolderContent.map { it.uniquePath }.toSet()
+                val freshPaths = newContent.map { it.uniquePath }.toSet()
+                if (oldPaths != freshPaths) {
+                    reloadFiles()
+                    return true
+                }
+            }
         } else if (activeFolder is ZipFileHolder) {
             val invalidZipTrees = globalClass.zipManager.validateArchiveTrees()
             if (invalidZipTrees.contains((activeFolder as ZipFileHolder).zipTree.source.uniquePath)) {
@@ -645,6 +670,49 @@ class FilesTab(
      * Only local content can be shared, other types must create a local copy first.
      */
     fun shareSelectedFiles(context: Context) {
+        val hasRemote = selectedFiles.values.any { it is SftpFileHolder }
+        if (hasRemote) {
+            // Download remote files to cache first, then share
+            scope.launch {
+                val uris = arrayListOf<Uri>()
+                selectedFiles.forEach { selectedFile ->
+                    val content = selectedFile.component2()
+                    if (content is SftpFileHolder && content.isFile()) {
+                        runCatching {
+                            val tmp = File(
+                                File(globalClass.cacheDir, "sftp_share"),
+                                content.displayName
+                            ).apply { parentFile?.mkdirs() }
+                            content.downloadTo(tmp)
+                            uris.add(
+                                getUriForFile(
+                                    context,
+                                    globalClass.packageName + ".provider",
+                                    tmp
+                                )
+                            )
+                        }.onFailure { logger.logError(it) }
+                    } else if (content is LocalFileHolder) {
+                        uris.add(
+                            getUriForFile(
+                                context,
+                                globalClass.packageName + ".provider",
+                                content.file
+                            )
+                        )
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    if (uris.isEmpty()) {
+                        globalClass.showMsg(R.string.failed_to_open_this_file)
+                    } else {
+                        launchShareIntent(context, uris)
+                    }
+                }
+            }
+            return
+        }
+
         val uris = arrayListOf<Uri>()
 
         selectedFiles.forEach { selectedFile ->
@@ -656,6 +724,11 @@ class FilesTab(
             }
         }
 
+        launchShareIntent(context, uris)
+    }
+
+    private fun launchShareIntent(context: Context, uris: List<Uri>) {
+        if (uris.isEmpty()) return
         val builder = ShareCompat.IntentBuilder(globalClass)
             .setType(if (uris.size == 1) uris[0].getMimeType(globalClass) else anyFileType)
         uris.forEach {

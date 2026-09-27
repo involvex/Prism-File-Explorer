@@ -8,6 +8,8 @@ import com.raival.compose.file.explorer.common.toFormattedDate
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.sftp.SftpManager
+import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
 import com.reandroid.archive.ZipAlign
 import java.io.File
@@ -139,6 +141,7 @@ class RenameTask(val sourceContent: List<ContentHolder>) : Task() {
         when (sampleContent) {
             is ZipFileHolder -> handleZipFileRenaming()
             is LocalFileHolder -> handleLocalFileRenaming()
+            is SftpFileHolder -> handleSftpFileRenaming()
             else -> {
                 markAsFailed(globalClass.getString(R.string.unsupported_source_type))
                 return
@@ -402,11 +405,66 @@ class RenameTask(val sourceContent: List<ContentHolder>) : Task() {
         parameters = params as RenameTaskParameters
     }
 
+    private suspend fun handleSftpFileRenaming() {
+        pendingContent.forEachIndexed { index, itemToRename ->
+            if (aborted) {
+                markAsAborted()
+                return
+            }
+
+            if (itemToRename.status == TaskContentStatus.PENDING) {
+                val progressPercent = 0.1f + (0.8f * (index.toFloat() / pendingContent.size))
+
+                progressMonitor.apply {
+                    contentName = itemToRename.source.displayName
+                    remainingContent = pendingContent.size - (index + 1)
+                    progress = progressPercent
+                }
+
+                try {
+                    val sftpFile = itemToRename.source as SftpFileHolder
+                    // newPath for SFTP is a remote absolute path (see getNewPath)
+                    val destName = itemToRename.newPath.substringAfterLast("/")
+                    val renamed = sftpFile.renameRemote(destName)
+                    if (renamed != null) {
+                        itemToRename.status = TaskContentStatus.SUCCESS
+                    } else {
+                        throw Exception(globalClass.getString(R.string.failed_to_rename_file))
+                    }
+                } catch (e: Exception) {
+                    logger.logError(e)
+                    markAsFailed(
+                        globalClass.resources.getString(
+                            R.string.task_summary_failed,
+                            e.message ?: emptyString
+                        )
+                    )
+                    return
+                }
+            }
+        }
+    }
+
     private fun getNewPath(
         content: ContentHolder,
         newName: String,
         index: Int,
     ): String {
+        if (content is SftpFileHolder) {
+            val parent = SftpManager.parentOf(content.normalizedPath) ?: "/"
+            if (sourceContent.size == 1) {
+                return SftpManager.join(parent, newName)
+            }
+            val newFileName = content.displayName.transformFileName(
+                newName = newName,
+                index = index,
+                textToFind = parameters!!.toFind,
+                replaceText = parameters!!.toReplace,
+                useRegex = parameters!!.useRegex,
+                onLastModified = { content.lastModified }
+            )
+            return SftpManager.join(parent, newFileName)
+        }
         val file = File(content.uniquePath)
 
         // 1. Deconstruct the original path and file name

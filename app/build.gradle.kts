@@ -96,7 +96,13 @@ dependencies {
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
     implementation(libs.okio)
-    implementation(libs.pdfbox.android)
+    implementation(libs.pdfbox.android) {
+        // pdfbox-android pulls bcprov/bcpkix/bcutil-jdk15to18 which duplicates
+        // sshj's jdk18on artifacts at dex time; jdk18on is backward compatible.
+        exclude(group = "org.bouncycastle", module = "bcprov-jdk15to18")
+        exclude(group = "org.bouncycastle", module = "bcpkix-jdk15to18")
+        exclude(group = "org.bouncycastle", module = "bcutil-jdk15to18")
+    }
     implementation(libs.apache.poi.ooxml)
     implementation(libs.apache.poi.scratchpad)
 
@@ -110,9 +116,19 @@ dependencies {
     implementation(libs.zoomable)
 
     // Third-Party General Utilities
-    implementation(libs.apksig)
+    implementation(libs.apksig) {
+        // apksig pulls bcprov/bcpkix-jdk15to18 which duplicates sshj's jdk18on
+        // artifacts at dex time; jdk18on is backward compatible.
+        exclude(group = "org.bouncycastle", module = "bcprov-jdk15to18")
+        exclude(group = "org.bouncycastle", module = "bcpkix-jdk15to18")
+    }
     implementation(libs.commons.net)
     implementation(libs.gson)
     implementation(libs.storage)
     implementation(libs.zip4j)
+    implementation(libs.sshj)
+    // Explicit: sshj exposes bcprov as runtime-only; SftpManager references
+    // BouncyCastleProvider directly to fix Android's stub "BC" provider.
+    implementation(libs.bcprov.jdk18on)
+    implementation(libs.androidx.security.crypto)
 }

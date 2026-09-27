@@ -12,6 +12,7 @@ object HomeSectionIds {
     const val PINNED_FILES = "pinned_files"
     const val RECYCLE_BIN = "recycle_bin"
     const val JUMP_TO_PATH = "jump_to_path"
+    const val SERVERS = "servers"
 }
 
 fun getDefaultHomeLayout(minimalLayout: Boolean = false) = HomeLayout(
@@ -64,6 +65,13 @@ fun getDefaultHomeLayout(minimalLayout: Boolean = false) = HomeLayout(
             title = globalClass.getString(R.string.jump_to_path),
             isEnabled = !minimalLayout,
             order = 6
+        ),
+        HomeSectionConfig(
+            id = HomeSectionIds.SERVERS,
+            type = HomeSectionType.SERVERS,
+            title = globalClass.getString(R.string.sftp_servers),
+            isEnabled = true,
+            order = 7
         )
     )
 )
@@ -74,19 +82,32 @@ data class HomeLayout(
 ) {
     // Adds missing sections for backward compatibility with older saved layouts
     fun getSections(): List<HomeSectionConfig> {
+        var result = sections
         // Add Pinned Files if missing (for layouts saved before v1.3.2)
-        if (sections.find { it.id == HomeSectionIds.PINNED_FILES } == null) {
-            return sections.plus(
+        if (result.find { it.id == HomeSectionIds.PINNED_FILES } == null) {
+            result = result.plus(
                 HomeSectionConfig(
                     id = HomeSectionIds.PINNED_FILES,
                     type = HomeSectionType.PINNED_FILES,
                     title = globalClass.getString(R.string.pinned_files),
                     isEnabled = true,
-                    order = sections.maxOfOrNull { it.order }?.plus(1) ?: 0
+                    order = result.maxOfOrNull { it.order }?.plus(1) ?: 0
                 )
             )
         }
-        return sections
+        // Add Servers if missing (for layouts saved before SFTP support)
+        if (result.find { it.id == HomeSectionIds.SERVERS } == null) {
+            result = result.plus(
+                HomeSectionConfig(
+                    id = HomeSectionIds.SERVERS,
+                    type = HomeSectionType.SERVERS,
+                    title = globalClass.getString(R.string.sftp_servers),
+                    isEnabled = true,
+                    order = result.maxOfOrNull { it.order }?.plus(1) ?: 0
+                )
+            )
+        }
+        return result
     }
 }
 
@@ -107,5 +128,6 @@ enum class HomeSectionType {
     BOOKMARKS,
     RECYCLE_BIN,
     JUMP_TO_PATH,
-    PINNED_FILES
+    PINNED_FILES,
+    SERVERS
 }

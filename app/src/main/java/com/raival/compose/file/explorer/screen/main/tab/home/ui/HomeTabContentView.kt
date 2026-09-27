@@ -192,6 +192,10 @@ fun ColumnScope.HomeTabContentView(tab: HomeTab) {
                 HomeSectionType.PINNED_FILES -> {
                     PinnedFilesSection(tab = tab, mainActivityManager = mainActivityManager)
                 }
+
+                HomeSectionType.SERVERS -> {
+                    SftpServersSection(mainActivityManager = mainActivityManager)
+                }
             }
         }
     }

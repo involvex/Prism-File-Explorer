@@ -58,3 +58,10 @@
 -keep class rikka.shizuku.** { *; }
 -keep class moe.shizuku.** { *; }
 -dontwarn rikka.shizuku.**
+
+# SSHJ - SFTP support
+-keep class net.schmizz.** { *; }
+-keep class com.hierynomus.** { *; }
+-keep class org.bouncycastle.** { *; }
+-dontwarn net.schmizz.**
+-dontwarn com.hierynomus.**
