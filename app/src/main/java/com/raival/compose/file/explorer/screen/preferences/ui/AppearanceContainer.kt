@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Nightlight
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.VerticalAlignTop
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -87,6 +88,19 @@ fun AppearanceContainer() {
                     onSelect = { prefs.dateTimeFormat = commonDateFormat[it] }
                 )
             }
+        )
+
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            thickness = 3.dp
+        )
+
+        PreferenceItem(
+            label = stringResource(R.string.dynamic_color),
+            supportingText = stringResource(R.string.dynamic_color_desc),
+            icon = Icons.Rounded.Palette,
+            switchState = prefs.dynamicColor,
+            onSwitchChange = { prefs.dynamicColor = it }
         )
 
         HorizontalDivider(

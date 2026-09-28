@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.ContentCut
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FileCopy
 import androidx.compose.material.icons.rounded.FormatColorText
+import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Merge
@@ -53,6 +55,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.VirtualFile
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.DefaultOpeningMethods
+import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkBundleFileType
 import com.raival.compose.file.explorer.screen.main.tab.files.task.ApksMergeTask
 import com.raival.compose.file.explorer.screen.main.tab.files.task.ApksMergeTaskParameters
@@ -316,6 +319,22 @@ fun FileOptionsMenuDialog(
                         )
                         tab.unselectAllFiles()
                     }
+                }
+            }
+
+            if (isSingleFile && targetContentHolder is LocalFileHolder &&
+                FileMimeType.extractableArchiveFileType.contains(targetContentHolder.file.extension.lowercase())
+            ) {
+                FileOption(Icons.Rounded.FolderZip, stringResource(R.string.extract_archive)) {
+                    onDismissRequest()
+                    tab.toggleExtractArchiveDialog(true)
+                }
+            }
+
+            if (isSingleFolder && targetContentHolder is LocalFileHolder) {
+                FileOption(Icons.Rounded.Analytics, stringResource(R.string.storage_analyzer)) {
+                    onDismissRequest()
+                    tab.toggleStorageAnalyzerDialog(true)
                 }
             }
 

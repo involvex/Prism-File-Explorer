@@ -74,7 +74,8 @@ fun FileExplorerTheme(
     }
 
     fun getTheme(): ColorScheme {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val useDynamic = manager.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        return if (useDynamic) {
             when (manager.theme) {
                 ThemePreference.LIGHT.ordinal -> dynamicLightColorScheme(context)
                 ThemePreference.DARK.ordinal -> dynamicDarkColorScheme(context)
@@ -97,7 +98,7 @@ fun FileExplorerTheme(
         mutableStateOf(getTheme())
     }
 
-    LaunchedEffect(manager.theme) {
+    LaunchedEffect(manager.theme, manager.dynamicColor) {
         colorScheme = getTheme()
     }
 

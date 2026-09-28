@@ -45,6 +45,11 @@ object FileMimeType {
     val supportedArchiveFileType = arrayOf("zip", "jar", "apk", "apks")
 
     @JvmField
+    val extractableArchiveFileType = arrayOf(
+        "zip", "jar", "apk", "apks", "7z", "tar", "gz", "tgz", "tbz2", "bz2", "xz"
+    )
+
+    @JvmField
     val videoFileType = arrayOf(
         "mp4", "mov", "avi", "mkv", "wmv", "m4v", "3gp",
         "webm", "flv", "mpeg", "mpg", "ogv", "mxf", "vob", "ts"

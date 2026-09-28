@@ -863,4 +863,12 @@ class FilesTab(
         targetFile = file
         _dialogsState.update { it.copy(showImportPrefsDialog = file != null) }
     }
+
+    fun toggleExtractArchiveDialog(show: Boolean) {
+        _dialogsState.update { it.copy(showExtractArchiveDialog = show) }
+    }
+
+    fun toggleStorageAnalyzerDialog(show: Boolean) {
+        _dialogsState.update { it.copy(showStorageAnalyzerDialog = show) }
+    }
 }

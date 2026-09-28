@@ -60,6 +60,12 @@ class PreferencesManager {
         getPreferencesKey = { booleanPreferencesKey(it) }
     )
 
+    var dynamicColor by prefMutableState(
+        keyName = "dynamicColor",
+        defaultValue = true,
+        getPreferencesKey = { booleanPreferencesKey(it) }
+    )
+
 
     //---------- File List -------------//
     var itemSize by prefMutableState(

@@ -13,8 +13,8 @@ android {
         applicationId = "com.raival.compose.file.explorer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.3.2"
+        versionCode = 11
+        versionName = "1.4.0"
         multiDexEnabled = true
     }
 
@@ -126,6 +126,7 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.storage)
     implementation(libs.zip4j)
+    implementation(libs.commons.compress)
     implementation(libs.sshj)
     // Explicit: sshj exposes bcprov as runtime-only; SftpManager references
     // BouncyCastleProvider directly to fix Android's stub "BC" provider.

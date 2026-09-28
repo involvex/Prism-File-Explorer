@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -49,6 +50,7 @@ fun FileCompressionDialog(
         }
 
         var newNameInput by remember { mutableStateOf("${tab.activeFolder.displayName}.zip") }
+        var passwordInput by remember { mutableStateOf("") }
         var error by remember { mutableStateOf("") }
 
         LaunchedEffect(newNameInput) {
@@ -115,6 +117,22 @@ fun FileCompressionDialog(
                         } else null
                     )
 
+                    TextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = passwordInput,
+                        onValueChange = { passwordInput = it },
+                        label = { Text(text = stringResource(R.string.archive_password_optional)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(6.dp),
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = TextFieldDefaults.colors(
+                            errorIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
+                        )
+                    )
+
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -133,7 +151,8 @@ fun FileCompressionDialog(
                                             File(
                                                 (tab.activeFolder as LocalFileHolder).file,
                                                 newNameInput
-                                            ).absolutePath
+                                            ).absolutePath,
+                                            passwordInput
                                         )
                                     )
                                 } else {

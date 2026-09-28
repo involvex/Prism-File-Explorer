@@ -7,6 +7,9 @@ import com.raival.compose.file.explorer.common.emptyString
 import com.raival.compose.file.explorer.common.toFormattedDate
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHolder
 import net.lingala.zip4j.ZipFile
+import net.lingala.zip4j.model.ZipParameters
+import net.lingala.zip4j.model.enums.AesKeyStrength
+import net.lingala.zip4j.model.enums.EncryptionMethod
 import java.io.File
 
 class CompressTask(
@@ -114,7 +117,10 @@ class CompressTask(
                 return
             }
 
-            ZipFile(parameters?.destPath).use { zipOut ->
+            val destPath = parameters?.destPath.orEmpty()
+            val password = parameters?.password.orEmpty()
+            val zipOut = if (password.isNotEmpty()) ZipFile(destPath, password.toCharArray()) else ZipFile(destPath)
+            zipOut.use {
                 pendingContent.forEachIndexed { index, itemToCompress ->
                     if (aborted) {
                         markAsAborted()
@@ -173,11 +179,25 @@ class CompressTask(
     }
 
     private fun addFileToZip(zipOut: ZipFile, fileToCompress: ContentHolder) {
-        zipOut.addFile(File(fileToCompress.uniquePath))
+        if (zipOut.isEncrypted) {
+            zipOut.addFile(File(fileToCompress.uniquePath), encryptedParams())
+        } else {
+            zipOut.addFile(File(fileToCompress.uniquePath))
+        }
     }
 
     private fun addFolderToZip(zipOut: ZipFile, folderToCompress: ContentHolder) {
-        zipOut.addFolder(File(folderToCompress.uniquePath))
+        if (zipOut.isEncrypted) {
+            zipOut.addFolder(File(folderToCompress.uniquePath), encryptedParams())
+        } else {
+            zipOut.addFolder(File(folderToCompress.uniquePath))
+        }
+    }
+
+    private fun encryptedParams() = ZipParameters().apply {
+        isEncryptFiles = true
+        encryptionMethod = EncryptionMethod.AES
+        aesKeyStrength = AesKeyStrength.KEY_STRENGTH_256
     }
 
     override fun setParameters(params: TaskParameters) {

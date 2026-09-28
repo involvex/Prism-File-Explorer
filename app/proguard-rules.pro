@@ -65,3 +65,8 @@
 -keep class org.bouncycastle.** { *; }
 -dontwarn net.schmizz.**
 -dontwarn com.hierynomus.**
+
+# Commons Compress - 7z/tar/gz/bz2/xz support
+-keep class org.apache.commons.compress.** { *; }
+-dontwarn org.apache.commons.compress.**
+-dontwarn org.tukaani.**

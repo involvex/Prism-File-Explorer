@@ -253,7 +253,7 @@ private fun SingleFileContent(details: PropertiesState.SingleContentProperties) 
             )
             AsyncPropertyRow(
                 icon = Icons.Default.Fingerprint,
-                label = stringResource(R.string.sha1_checksum),
+                label = stringResource(R.string.sha256_checksum),
                 valueFlow = details.sha256,
                 progressFlow = details.sha256Progress
             )

@@ -15,4 +15,6 @@ data class DialogsState(
     val showSearchPenal: Boolean = false,
     val showBookmarkDialog: Boolean = false,
     val showImportPrefsDialog: Boolean = false,
+    val showExtractArchiveDialog: Boolean = false,
+    val showStorageAnalyzerDialog: Boolean = false,
 )

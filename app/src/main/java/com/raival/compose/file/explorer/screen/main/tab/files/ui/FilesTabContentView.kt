@@ -12,7 +12,9 @@ import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.ApkPrevi
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.BookmarksDialog
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.CreateNewFileDialog
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.DeleteConfirmationDialog
+import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.ExtractArchiveDialog
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.FileCompressionDialog
+import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.StorageAnalyzerDialog
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.FileOptionsMenuDialog
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.FilePropertiesDialog
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.dialog.FileSortingMenuDialog
@@ -128,6 +130,18 @@ fun Dialogs(tab: FilesTab) {
         show = dialogsState.value.showImportPrefsDialog,
         tab = tab,
         onDismissRequest = { tab.toggleImportPrefsDialog(null) }
+    )
+
+    ExtractArchiveDialog(
+        show = dialogsState.value.showExtractArchiveDialog,
+        tab = tab,
+        onDismissRequest = { tab.toggleExtractArchiveDialog(false) }
+    )
+
+    StorageAnalyzerDialog(
+        show = dialogsState.value.showStorageAnalyzerDialog,
+        tab = tab,
+        onDismissRequest = { tab.toggleStorageAnalyzerDialog(false) }
     )
 
     TaskRunningDialog()

@@ -41,6 +41,7 @@ apachePoi = "5.2.5"
 sshj = "0.39.0"
 securityCrypto = "1.1.0"
 bcprov = "1.78.1"
+commonsCompress = "1.27.1"
 
 [libraries]
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
@@ -95,6 +96,7 @@ apache-poi = { module = "org.apache.poi:poi", version.ref = "apachePoi" }
 sshj = { module = "com.hierynomus:sshj", version.ref = "sshj" }
 bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprov" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
+commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commonsCompress" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
