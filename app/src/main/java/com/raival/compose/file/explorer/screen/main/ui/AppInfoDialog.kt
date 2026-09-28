@@ -32,11 +32,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -45,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,7 +73,11 @@ import com.raival.compose.file.explorer.common.icons.PrismIcons
 import com.raival.compose.file.explorer.common.icons.Upgrade
 import com.raival.compose.file.explorer.common.ui.Space
 import com.raival.compose.file.explorer.screen.logs.LogsActivity
+import com.raival.compose.file.explorer.screen.main.model.UpdateDownloader
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun AppInfoDialog(
@@ -82,9 +89,15 @@ fun AppInfoDialog(
     val versionName =
         globalClass.packageManager.getPackageInfo(globalClass.packageName, 0).versionName
     val context = LocalContext.current
-    val newUpdate = globalClass.mainActivityManager.newUpdate
+    val scope = rememberCoroutineScope()
+    val isDebugInstall = globalClass.mainActivityManager.isDebugInstall()
 
     var animateContent by remember { mutableStateOf(false) }
+    var latestRelease by remember { mutableStateOf(globalClass.mainActivityManager.newUpdate) }
+    var updateAvailable by remember(hasNewUpdate) { mutableStateOf(hasNewUpdate) }
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf<Float?>(null) }
+    var downloadFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(show) {
         if (show) {
@@ -163,7 +176,7 @@ fun AppInfoDialog(
                                     )
 
                                     // Update indicator badge
-                                    if (hasNewUpdate) {
+                                    if (updateAvailable) {
                                         Box(
                                             modifier = Modifier
                                                 .align(Alignment.TopEnd)
@@ -214,8 +227,8 @@ fun AppInfoDialog(
                                 VersionBadge(
                                     currentVersion = versionName
                                         ?: stringResource(R.string.unknown),
-                                    newVersion = if (hasNewUpdate) newUpdate?.tagName else null,
-                                    hasUpdate = hasNewUpdate
+                                    newVersion = if (updateAvailable) latestRelease?.tagName else null,
+                                    hasUpdate = updateAvailable
                                 )
                             }
 
@@ -233,25 +246,89 @@ fun AppInfoDialog(
                             Column(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                if (hasNewUpdate && newUpdate != null) {
-                                    val downloadUrl =
-                                        newUpdate.assets.firstOrNull()?.browserDownloadUrl
-                                    if (downloadUrl != null) {
-                                        AnimatedVisibility(
-                                            visible = animateContent,
-                                            enter = fadeIn(animationSpec = tween(delayMillis = 300))
-                                        ) {
-                                            UpdateCard(
-                                                onClick = {
+                                if (updateAvailable && latestRelease != null) {
+                                    val release = latestRelease!!
+                                    val asset = release.preferredAsset(isDebugInstall)
+                                    AnimatedVisibility(
+                                        visible = animateContent,
+                                        enter = fadeIn(animationSpec = tween(delayMillis = 300))
+                                    ) {
+                                        UpdateCard(
+                                            progress = downloadProgress,
+                                            failed = downloadFailed,
+                                            onClick = {
+                                                if (asset == null) {
+                                                    // No APK attached: fall back to the release page
                                                     context.startActivity(
                                                         Intent(
                                                             Intent.ACTION_VIEW,
-                                                            downloadUrl.toUri()
+                                                            release.htmlUrl.toUri()
                                                         )
                                                     )
+                                                    return@UpdateCard
                                                 }
-                                            )
-                                        }
+                                                val apkFile = UpdateDownloader.localApkFor(
+                                                    release.tagName,
+                                                    asset.name
+                                                )
+                                                if (apkFile.exists()) {
+                                                    UpdateDownloader.installApk(context, apkFile)
+                                                    return@UpdateCard
+                                                }
+                                                if (downloadProgress != null) return@UpdateCard
+                                                downloadFailed = false
+                                                scope.launch(Dispatchers.IO) {
+                                                    var lastPosted = 0f
+                                                    val ok = UpdateDownloader.download(
+                                                        asset.browserDownloadUrl,
+                                                        apkFile
+                                                    ) { p ->
+                                                        // Throttle recompositions during download
+                                                        if (p - lastPosted > 0.01f || p >= 1f) {
+                                                            lastPosted = p
+                                                            downloadProgress = p
+                                                        }
+                                                    }
+                                                    withContext(Dispatchers.Main) {
+                                                        downloadProgress = null
+                                                        if (ok) {
+                                                            UpdateDownloader.installApk(
+                                                                context,
+                                                                apkFile
+                                                            )
+                                                        } else {
+                                                            downloadFailed = true
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    AnimatedVisibility(
+                                        visible = animateContent,
+                                        enter = fadeIn(animationSpec = tween(delayMillis = 300))
+                                    ) {
+                                        ActionCard(
+                                            icon = Icons.Outlined.Refresh,
+                                            title = stringResource(R.string.check_for_updates),
+                                            description = stringResource(
+                                                if (checkingUpdate) R.string.checking_for_updates
+                                                else R.string.check_for_updates_desc
+                                            ),
+                                            onClick = {
+                                                if (checkingUpdate) return@ActionCard
+                                                checkingUpdate = true
+                                                globalClass.mainActivityManager.checkForUpdate(
+                                                    manual = true
+                                                ) { found ->
+                                                    checkingUpdate = false
+                                                    latestRelease =
+                                                        globalClass.mainActivityManager.newUpdate
+                                                    updateAvailable = found
+                                                }
+                                            }
+                                        )
                                     }
                                 }
 
@@ -365,6 +442,8 @@ private fun VersionBadge(
 
 @Composable
 private fun UpdateCard(
+    progress: Float?,
+    failed: Boolean,
     onClick: () -> Unit
 ) {
     Card(
@@ -423,10 +502,29 @@ private fun UpdateCard(
                 Space(4.dp)
 
                 Text(
-                    text = stringResource(R.string.download_new_update),
+                    text = when {
+                        failed -> stringResource(R.string.update_download_failed)
+                        progress != null -> stringResource(
+                            R.string.downloading_update,
+                            (progress * 100).toInt()
+                        )
+                        else -> stringResource(R.string.download_new_update)
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    color = if (failed) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    }
                 )
+
+                if (progress != null) {
+                    Space(8.dp)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }

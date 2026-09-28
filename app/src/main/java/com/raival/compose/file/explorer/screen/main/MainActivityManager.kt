@@ -427,9 +427,17 @@ class MainActivityManager {
         }
     }
 
-    fun checkForUpdate() {
+    fun isDebugInstall(): Boolean = globalClass.packageName.endsWith(".debug")
+
+    fun checkForUpdate(manual: Boolean = false, onDone: ((Boolean) -> Unit)? = null) {
         fetchGithubReleases { releases ->
-            val latestRelease = releases.firstOrNull() ?: return@fetchGithubReleases
+            // Skip drafts-adjacent prereleases; only stable releases trigger updates
+            val latestRelease = releases.firstOrNull { !it.prerelease }
+            if (latestRelease == null) {
+                if (manual) showMsg(R.string.no_updates_available)
+                onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(false) } }
+                return@fetchGithubReleases
+            }
             val latestVersionName = latestRelease.tagName
 
             try {
@@ -445,8 +453,13 @@ class MainActivityManager {
                     newUpdate = latestRelease
                     _state.update { it.copy(hasNewUpdate = true) }
                     showMsg(R.string.new_update_available)
+                    onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(true) } }
+                } else {
+                    if (manual) showMsg(R.string.no_updates_available)
+                    onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(false) } }
                 }
             } catch (_: Exception) {
+                onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(false) } }
             }
         }
     }

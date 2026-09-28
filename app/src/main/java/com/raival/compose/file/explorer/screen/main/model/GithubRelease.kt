@@ -19,6 +19,24 @@ data class GithubRelease(
     val body: String,
     @SerializedName("published_at")
     val publishedAt: Date,
+    @SerializedName("prerelease")
+    val prerelease: Boolean = false,
     @SerializedName("assets")
     val assets: List<GithubReleaseAsset>
-)
+) {
+    /**
+     * Picks the APK matching this install type: debug builds (`.debug` suffix)
+     * get the `app-debug.apk` asset, release builds get the first non-debug APK.
+     */
+    fun preferredAsset(isDebugInstall: Boolean): GithubReleaseAsset? {
+        val apks = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
+        if (apks.isEmpty()) return null
+        return if (isDebugInstall) {
+            apks.firstOrNull { it.name.contains("debug", ignoreCase = true) }
+                ?: apks.first()
+        } else {
+            apks.firstOrNull { !it.name.contains("debug", ignoreCase = true) }
+                ?: apks.first()
+        }
+    }
+}
