@@ -1,5 +1,7 @@
-> [!IMPORTANT]  
-> **This repository is no longer actively maintained.** I am unable to provide support, fix bugs, or merge pull requests. If you’d like to take over maintenance, feel free to fork the project and I’m happy to add a link to your fork in this README.
+> [!NOTE]
+> **This is the maintained fork of Prism File Explorer** by [involvex](https://github.com/involvex).
+> Upstream (`Raival-e/Prism-File-Explorer`) is no longer actively maintained — all new development
+> (Shizuku, SFTP, Office viewer, archive expansion, storage analyzer, …) happens here.
 
 <div align="center">
 
@@ -9,10 +11,10 @@
 
 [![Platform](https://img.shields.io/badge/Platform-Android-brightgreen.svg?logo=android)](https://www.android.com/)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Release](https://img.shields.io/github/v/release/Raival-e/Prism-File-Explorer?label=Release)](https://github.com/Raival-e/Prism-File-Explorer/releases)
-[![APK Downloads](https://img.shields.io/github/downloads/Raival-e/Prism-File-Explorer/total.svg?label=APK%20Downloads)](https://github.com/Raival-e/Prism-File-Explorer/releases)
-[![Stars](https://img.shields.io/github/stars/Raival-e/Prism-File-Explorer?style=flat&logo=github)](https://github.com/Raival-e/Prism-File-Explorer/stargazers)
-[![Forks](https://img.shields.io/github/forks/Raival-e/Prism-File-Explorer?style=flat&logo=github)](https://github.com/Raival-e/Prism-File-Explorer/network/members)
+[![Release](https://img.shields.io/github/v/release/involvex/Prism-File-Explorer?label=Release)](https://github.com/involvex/Prism-File-Explorer/releases)
+[![APK Downloads](https://img.shields.io/github/downloads/involvex/Prism-File-Explorer/total.svg?label=APK%20Downloads)](https://github.com/involvex/Prism-File-Explorer/releases)
+[![Stars](https://img.shields.io/github/stars/involvex/Prism-File-Explorer?style=flat&logo=github)](https://github.com/involvex/Prism-File-Explorer/stargazers)
+[![Forks](https://img.shields.io/github/forks/involvex/Prism-File-Explorer?style=flat&logo=github)](https://github.com/involvex/Prism-File-Explorer/network/members)
 [<img src="https://shields.rbtlog.dev/simple/com.raival.compose.file.explorer" alt="RB shield">](https://shields.rbtlog.dev/com.raival.compose.file.explorer)
 
 **A modern, feature-rich, and lightweight file manager for Android, built entirely with Kotlin and Jetpack Compose.**
@@ -92,15 +94,36 @@
 
 | Platform            | Link                                                                                                                                                                                                                                                                                                                                                                        |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **GitHub Releases** | [![GitHub](https://img.shields.io/badge/GitHub-Download-black?style=for-the-badge&logo=github)](https://github.com/Raival-e/Prism-File-Explorer/releases)                                                                                                                                                                                                                   |
+| **GitHub Releases** | [![GitHub](https://img.shields.io/badge/GitHub-Download-black?style=for-the-badge&logo=github)](https://github.com/involvex/Prism-File-Explorer/releases)                                                                                                                                                                                                                   |
 | **IzzyOnDroid**     | [![IzzyOnDroid](https://img.shields.io/badge/IzzyOnDroid-Download-green?style=for-the-badge)](https://apt.izzysoft.de/fdroid/index/apk/com.raival.compose.file.explorer)                                                                                                                                                                                                    |
-| **Obtainium**       | [![Obtainium](https://img.shields.io/badge/Obtainium-Download-blue?style=for-the-badge)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.raival.compose.file.explorer%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FRaival-e%2FPrism-File-Explorer%22%2C%22author%22%3A%22Raival-e%22%2C%22name%22%3A%22File%20Explorer%20Compose%22%7D) |
+| **Obtainium**       | [![Obtainium](https://img.shields.io/badge/Obtainium-Download-blue?style=for-the-badge)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.raival.compose.file.explorer%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Finvolvex%2FPrism-File-Explorer%22%2C%22author%22%3A%22involvex%22%2C%22name%22%3A%22File%20Explorer%20Compose%22%7D) |
 | **OpenApk**         | [![OpenApk](https://img.shields.io/badge/OpenApk-Download-purple?style=for-the-badge)](https://www.openapk.net/file-explorer/com.raival.compose.file.explorer/)                                                                                                                                                                                                             |
+
+> **Latest release: [v1.4.0](https://github.com/involvex/Prism-File-Explorer/releases/tag/v1.4.0)** — debug APK (unsigned, side-by-side with Play builds).
 
 ### 📋 System Requirements
 
-- **Android Version**: 6.0 (API 23) or higher
+- **Android Version**: 8.0 (API 26) or higher
 - **Permissions**: Storage access for file management
+
+---
+
+## 🆕 Fork Enhancements (involvex)
+
+On top of upstream, this fork adds:
+
+| Area | Enhancement |
+|------|-------------|
+| 🔓 **Shizuku** | Browse `Android/data`, `data/data`, `Android/obb` without root; shell-backed copy/delete/rename |
+| 🌐 **SFTP** | Saved servers, TOFU known-hosts, encrypted credentials, remote browsing + sharing |
+| 📄 **Documents** | Office/ODF viewing via PDF conversion, export to Markdown/ODF, filled-form save |
+| 🗜️ **Archives** | Extract 7z/tar/gz/bz2/xz, password-protected (AES-256) ZIP create + extract |
+| 📊 **Analyzer** | Storage analyzer: per-folder size bars + largest-100-files (folder menu) |
+| 🎨 **Themes** | Hacker (green-on-black) theme, Material You dynamic-color toggle |
+| ⚙️ **Behavior** | Disable-recycle-bin toggle, home-layout prefs, per-folder view memory |
+| ✅ **Checksums** | MD5 + SHA-256 in Properties (long-press to copy) |
+| ✏️ **Rename** | Batch rename with patterns, regex find-replace, live preview |
+| 🔨 **Build** | AGP 8.13.2, debug/release side-by-side installs, in-app update checker (this repo) |
 
 ---
 
@@ -110,7 +133,7 @@
 |--------------------------------------------------------------------------------------------------------------------------|--------------------------|---------------|
 | ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat&logo=kotlin&logoColor=white)                             | **Programming Language** | Latest        |
 | ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=flat&logo=jetpackcompose&logoColor=white) | **UI Framework**         | Latest Stable |
-| ![Android](https://img.shields.io/badge/Android-3DDC84?style=flat&logo=android&logoColor=white)                          | **Platform**             | SDK 34+       |
+| ![Android](https://img.shields.io/badge/Android-3DDC84?style=flat&logo=android&logoColor=white)                          | **Platform**             | SDK 36, min 26 |
 | ![Material Design](https://img.shields.io/badge/Material%20Design-757575?style=flat&logo=materialdesign&logoColor=white) | **Design System**        | Material 3    |
 
 
@@ -127,18 +150,20 @@
 ### Build Instructions
 
 1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Raival-e/Prism-File-Explorer.git
-   cd Prism-File-Explorer
-   ```
+    ```bash
+    git clone https://github.com/involvex/Prism-File-Explorer.git
+    cd Prism-File-Explorer
+    ```
 
 2. **Build the project**:
-   ```bash
-   ./gradlew assembleRelease
-   ```
+    ```bash
+    ./gradlew assembleDebug      # unsigned, package com.raival.compose.file.explorer.debug
+    ./gradlew assembleRelease    # minified, needs signing config
+    ```
 
 3. **Find the APK**:
-    - Generated APK will be in `app/build/outputs/apk/release/`
+     - Debug APK: `app/build/outputs/apk/debug/`
+     - Release APK: `app/build/outputs/apk/release/`
 ---
 
 ## 🤝 Contributing
@@ -158,7 +183,7 @@
 
 ## 📊 Project Stats
 
-![GitHub stats](https://github-readme-stats.vercel.app/api?username=Raival-e&repo=Prism-File-Explorer&show_icons=true&theme=default)
+![GitHub stats](https://github-readme-stats.vercel.app/api?username=involvex&repo=Prism-File-Explorer&show_icons=true&theme=default)
 
 ---
 
@@ -201,4 +226,6 @@ See the [LICENSE](LICENSE) file for the full license text.
 
 **⭐ If you find this project useful, please consider giving it a star!**
 
-[![Star History](https://img.shields.io/github/stars/Raival-e/Prism-File-Explorer?style=social)](https://github.com/Raival-e/Prism-File-Explorer/stargazers)
+[![Star History](https://img.shields.io/github/stars/involvex/Prism-File-Explorer?style=social)](https://github.com/involvex/Prism-File-Explorer/stargazers)
+
+*Upstream project by [Raival-e](https://github.com/Raival-e/Prism-File-Explorer) (archived) — full credit for the original app.*

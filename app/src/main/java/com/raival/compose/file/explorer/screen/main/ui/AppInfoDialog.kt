@@ -267,7 +267,7 @@ fun AppInfoDialog(
                                             context.startActivity(
                                                 Intent(
                                                     Intent.ACTION_VIEW,
-                                                    "https://github.com/Raival-e/Prism-File-Explorer".toUri()
+                                                    "https://github.com/involvex/Prism-File-Explorer".toUri()
                                                 )
                                             )
                                         }

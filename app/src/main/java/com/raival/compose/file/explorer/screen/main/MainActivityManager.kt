@@ -480,7 +480,7 @@ class MainActivityManager {
         onResult: (List<GithubRelease>) -> Unit
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-            val url = "https://api.github.com/repos/Raival-e/Prism-File-Explorer/releases"
+            val url = "https://api.github.com/repos/involvex/Prism-File-Explorer/releases"
             var releases = emptyList<GithubRelease>()
 
             try {
