@@ -37,11 +37,28 @@ class SftpCredentialsStore {
         }
     }
 
+    suspend fun saveKeyPassphrase(serverId: String, passphrase: String) =
+        withContext(Dispatchers.IO) {
+            prefs().edit().putString(keyPassphraseKey(serverId), passphrase).apply()
+        }
+
+    suspend fun getKeyPassphrase(serverId: String): String? = withContext(Dispatchers.IO) {
+        try {
+            prefs().getString(keyPassphraseKey(serverId), null)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     suspend fun clear(serverId: String) = withContext(Dispatchers.IO) {
-        prefs().edit().remove(passwordKey(serverId)).apply()
+        prefs().edit()
+            .remove(passwordKey(serverId))
+            .remove(keyPassphraseKey(serverId))
+            .apply()
     }
 
     suspend fun hasPassword(serverId: String): Boolean = getPassword(serverId) != null
 
     private fun passwordKey(serverId: String) = "sftp_pw_$serverId"
+    private fun keyPassphraseKey(serverId: String) = "sftp_key_pp_$serverId"
 }

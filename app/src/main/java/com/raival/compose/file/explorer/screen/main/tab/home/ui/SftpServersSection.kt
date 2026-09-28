@@ -39,6 +39,7 @@ import com.raival.compose.file.explorer.R
 import com.raival.compose.file.explorer.screen.main.MainActivityManager
 import com.raival.compose.file.explorer.screen.main.tab.files.FilesTab
 import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.sftp.model.SftpAuthType
 import com.raival.compose.file.explorer.screen.main.tab.sftp.model.SftpServer
 import com.raival.compose.file.explorer.screen.main.tab.sftp.ui.AddEditSftpServerDialog
 import kotlinx.coroutines.Dispatchers
@@ -90,6 +91,7 @@ fun SftpServersSection(mainActivityManager: MainActivityManager) {
                     onClick = {
                         scope.launch(Dispatchers.IO) {
                             globalClass.sftpManager.credentialsStore.clear(target.id)
+                            globalClass.sftpManager.deleteKeyFile(target.id)
                             globalClass.sftpManager.saveServers(
                                 servers.filter { it.id != target.id }
                             )
@@ -150,13 +152,19 @@ fun SftpServersSection(mainActivityManager: MainActivityManager) {
                         .combinedClickable(
                             onClick = {
                                 scope.launch(Dispatchers.IO) {
-                                    val hasPw = globalClass.sftpManager.credentialsStore
-                                        .hasPassword(server.id)
+                                    val hasCred = globalClass.sftpManager
+                                        .hasUsableCredential(server)
                                     withContext(Dispatchers.Main) {
-                                        if (!hasPw) {
+                                        if (!hasCred) {
                                             editingServer = server
                                             showEditor = true
-                                            globalClass.showMsg(R.string.sftp_missing_password)
+                                            globalClass.showMsg(
+                                                if (server.authType == SftpAuthType.KEY) {
+                                                    R.string.sftp_missing_key
+                                                } else {
+                                                    R.string.sftp_missing_password
+                                                }
+                                            )
                                         } else {
                                             mainActivityManager.replaceCurrentTabWith(
                                                 FilesTab(

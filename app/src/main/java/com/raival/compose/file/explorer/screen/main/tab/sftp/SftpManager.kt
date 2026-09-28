@@ -3,6 +3,7 @@ package com.raival.compose.file.explorer.screen.main.tab.sftp
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.common.fromJson
 import com.raival.compose.file.explorer.common.toJson
+import com.raival.compose.file.explorer.screen.main.tab.sftp.model.SftpAuthType
 import com.raival.compose.file.explorer.screen.main.tab.sftp.model.SftpServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -103,7 +104,50 @@ class SftpManager {
         }
     }
 
-    private suspend fun getOrCreateClient(server: SftpServer, password: String): SSHClient =
+    /** App-private directory holding imported SFTP private keys (`<serverId>.key`). */
+    fun keysDir(): File = File(globalClass.filesDir, "sftp_keys").apply { mkdirs() }
+
+    fun keyFileFor(serverId: String): File = File(keysDir(), "$serverId.key")
+
+    suspend fun hasUsableCredential(server: SftpServer): Boolean = when (server.authType) {
+        SftpAuthType.PASSWORD -> credentialsStore.getPassword(server.id) != null
+        SftpAuthType.KEY -> withContext(Dispatchers.IO) { keyFileFor(server.id).exists() }
+    }
+
+    fun deleteKeyFile(serverId: String) {
+        runCatching { keyFileFor(serverId).delete() }
+    }
+
+    private fun SSHClient.authenticate(
+        server: SftpServer,
+        password: String?,
+        keyFile: File?,
+        passphrase: String?
+    ) {
+        if (server.authType == SftpAuthType.KEY) {
+            val key = keyFile?.takeIf { it.exists() } ?: keyFileFor(server.id)
+            if (!key.exists()) {
+                throw IllegalStateException("Missing private key for server ${server.displayLabel}")
+            }
+            val keyProvider = if (passphrase.isNullOrEmpty()) {
+                loadKeys(key.absolutePath)
+            } else {
+                loadKeys(key.absolutePath, passphrase)
+            }
+            authPublickey(server.username, keyProvider)
+        } else {
+            val pw = password
+                ?: throw IllegalStateException("Missing password for server ${server.displayLabel}")
+            authPassword(server.username, pw)
+        }
+    }
+
+    private suspend fun getOrCreateClient(
+        server: SftpServer,
+        password: String? = null,
+        keyFile: File? = null,
+        passphrase: String? = null
+    ): SSHClient =
         withContext(Dispatchers.IO) {
             ensureBouncyCastle()
             mutex.withLock {
@@ -117,7 +161,8 @@ class SftpManager {
                 client.connectTimeout = CONNECT_TIMEOUT_MS
                 client.timeout = SOCKET_TIMEOUT_MS
                 client.connect(server.host, server.port)
-                client.authPassword(server.username, password)
+                val pp = passphrase ?: credentialsStore.getKeyPassphrase(server.id)
+                client.authenticate(server, password, keyFile, pp)
                 clients[server.id] = client
                 client
             }
@@ -125,8 +170,10 @@ class SftpManager {
 
     suspend fun <T> withSftp(server: SftpServer, block: suspend (SFTPClient) -> T): T =
         withContext(Dispatchers.IO) {
-            val password = credentialsStore.getPassword(server.id)
-                ?: throw IllegalStateException("Missing password for server ${server.displayLabel}")
+            val password = if (server.authType == SftpAuthType.PASSWORD) {
+                credentialsStore.getPassword(server.id)
+                    ?: throw IllegalStateException("Missing password for server ${server.displayLabel}")
+            } else null
             val ssh = getOrCreateClient(server, password)
             val sftp = ssh.newSFTPClient()
             try {
@@ -136,7 +183,12 @@ class SftpManager {
             }
         }
 
-    suspend fun testConnection(server: SftpServer, password: String): Result<Unit> =
+    suspend fun testConnection(
+        server: SftpServer,
+        password: String? = null,
+        keyFile: File? = null,
+        passphrase: String? = null
+    ): Result<Unit> =
         withContext(Dispatchers.IO) {
             ensureBouncyCastle()
             runCatching {
@@ -146,7 +198,8 @@ class SftpManager {
                     client.connectTimeout = CONNECT_TIMEOUT_MS
                     client.timeout = SOCKET_TIMEOUT_MS
                     client.connect(server.host, server.port)
-                    client.authPassword(server.username, password)
+                    val pp = passphrase ?: credentialsStore.getKeyPassphrase(server.id)
+                    client.authenticate(server, password, keyFile, pp)
                     client.newSFTPClient().use { sftp ->
                         sftp.stat(normalize(server.remotePath))
                     }

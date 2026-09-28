@@ -6,6 +6,11 @@ import com.raival.compose.file.explorer.common.toJson
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
+enum class SftpAuthType {
+    PASSWORD,
+    KEY
+}
+
 @Serializable
 data class SftpServer(
     val id: String = UUID.randomUUID().toString(),
@@ -13,7 +18,10 @@ data class SftpServer(
     val host: String = emptyString,
     val port: Int = 22,
     val username: String = emptyString,
-    val remotePath: String = "/"
+    val remotePath: String = "/",
+    val authType: SftpAuthType = SftpAuthType.PASSWORD,
+    /** Original file name of the imported private key, for display only. */
+    val keyLabel: String = emptyString
 ) {
     val displayLabel: String
         get() = if (name.isNotBlank()) name else "$username@$host"
