@@ -1,0 +1,21 @@
+Picked up JAVA_TOOL_OPTIONS: --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --enable-native-access=ALL-UNNAMED
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as no cached configuration is available for tasks: dependencies --configuration debugRuntimeClasspath
+
+> Configure project :app
+WARNING: The option setting 'android.aapt2FromMavenOverride=C:\Users\lukas\AppData\Local\Android\Sdk\build-tools\36.1.0\aapt2.exe' is experimental.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+configuration 'debugRuntimeClasspath' not found in configuration container for root project 'File Explorer'.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 13s
+Configuration cache entry stored.

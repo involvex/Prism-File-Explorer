@@ -50,6 +50,18 @@ android {
     baselineProfile {
         dexLayoutOptimization = true
     }
+
+    packaging {
+        resources {
+            // bcutil 1.86 and bcprov 1.86 both ship META-INF/LICENSE.md
+            // and META-INF/LICENSE.txt; keep one copy of each.
+            excludes += "META-INF/LICENSE.md"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+            excludes += "META-INF/ASL20"
+        }
+    }
 }
 
 dependencies {
@@ -129,6 +141,13 @@ dependencies {
     implementation(libs.commons.compress)
     implementation(libs.smbj)
     implementation(libs.sshj)
+    // smbj 0.15.0 pulls bcprov 1.85.2 while sshj still ships bcutil 1.78.1;
+    // both jars contain IANAObjectIdentifiers and R8 rejects the duplicate.
+    // Force bcutil (and transitively bcprov) onto the 1.86 line so the
+    // BouncyCastle versions are consistent across smbj and sshj.
+    constraints {
+        implementation("org.bouncycastle:bcutil-jdk18on:1.86")
+    }
     // Explicit: sshj exposes bcprov as runtime-only; SftpManager references
     // BouncyCastleProvider directly to fix Android's stub "BC" provider.
     implementation(libs.bcprov.jdk18on)
