@@ -539,7 +539,6 @@
     <string name="smb_testing">Testing…</string>
     <string name="smb_connection_ok">Connection successful</string>
     <string name="smb_connection_failed">Connection failed: %1$s</string>
-    <string name="smb_missing_password">Saved password missing, please edit and re-enter</string>
     <string name="smb_missing_credentials">Credentials missing, please edit and re-enter</string>
     <string name="smb_invalid_input">Please fill host and share</string>
     <string name="smb_password_required">Password is required</string>
