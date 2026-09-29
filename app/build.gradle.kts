@@ -127,6 +127,7 @@ dependencies {
     implementation(libs.storage)
     implementation(libs.zip4j)
     implementation(libs.commons.compress)
+    implementation(libs.smbj)
     implementation(libs.sshj)
     // Explicit: sshj exposes bcprov as runtime-only; SftpManager references
     // BouncyCastleProvider directly to fix Android's stub "BC" provider.

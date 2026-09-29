@@ -78,6 +78,7 @@ import com.raival.compose.file.explorer.screen.main.tab.home.data.HomeLayout
 import com.raival.compose.file.explorer.screen.main.tab.home.data.HomeSectionConfig
 import com.raival.compose.file.explorer.screen.main.tab.home.data.HomeSectionType
 import com.raival.compose.file.explorer.screen.main.tab.home.data.getDefaultHomeLayout
+import com.raival.compose.file.explorer.screen.main.tab.smb.ui.SmbServersSection
 import com.raival.compose.file.explorer.screen.main.ui.SimpleNewTabViewItem
 import com.raival.compose.file.explorer.screen.main.ui.StorageDeviceView
 import kotlinx.coroutines.Dispatchers
@@ -195,6 +196,7 @@ fun ColumnScope.HomeTabContentView(tab: HomeTab) {
 
                 HomeSectionType.SERVERS -> {
                     SftpServersSection(mainActivityManager = mainActivityManager)
+                    SmbServersSection(mainActivityManager = mainActivityManager)
                 }
             }
         }

@@ -165,6 +165,12 @@ class PreferencesManager {
         getPreferencesKey = { stringPreferencesKey(it) }
     )
 
+    var smbServers by prefMutableState(
+        keyName = "smbServers",
+        defaultValue = "[]",
+        getPreferencesKey = { stringPreferencesKey(it) }
+    )
+
     var excludedPathsFromRecentFiles by prefMutableState(
         keyName = "excludedPathFromRecentFiles",
         defaultValue = emptySet(),
