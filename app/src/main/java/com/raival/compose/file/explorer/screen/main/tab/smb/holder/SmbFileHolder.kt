@@ -184,9 +184,16 @@ class SmbFileHolder(
         return buildString {
             append(displayName)
             if (entry != null && !entry.isDirectory) {
-                append(" | ${entry.size} B")
+                append(globalClass.getString(R.string.smb_details_size, entry.size))
             }
-            append(" | smb://${server.host}:${SmbManager.DEFAULT_PORT}$normalizedPath")
+            append(
+                globalClass.getString(
+                    R.string.smb_details_path,
+                    server.host,
+                    SmbManager.DEFAULT_PORT,
+                    normalizedPath
+                )
+            )
         }
     }
 }

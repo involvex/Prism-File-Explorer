@@ -7,6 +7,7 @@ import com.raival.compose.file.explorer.common.toJson
 import com.raival.compose.file.explorer.screen.main.tab.smb.model.SmbAuthType
 import com.raival.compose.file.explorer.screen.main.tab.smb.model.SmbServer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -79,13 +80,15 @@ class SmbManager {
         password: String? = null,
         block: (DiskShare) -> T
     ): T = withContext(Dispatchers.IO) {
-        val conn = getOrCreateConnection(server, password ?: resolvedPassword(server))
-        val session = conn.authenticate(buildAuth(server, password ?: resolvedPassword(server)))
+        val pw = password ?: resolvedPassword(server)
+        val conn = getOrCreateConnection(server, pw)
+        val session = conn.authenticate(buildAuth(server, pw))
         val share = session.connectShare(server.share) as DiskShare
         try {
             block(share)
         } finally {
             runCatching { share.close() }
+            runCatching { session.close() }
         }
     }
 
@@ -333,30 +336,31 @@ class SmbManager {
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
 runCatching {
-                    val client = SMBClient()
-                    try {
+                    SMBClient().use { client ->
                         val conn = client.connect(server.host, DEFAULT_PORT)
-                        val auth = buildAuth(server, password)
-                        val session = conn.authenticate(auth)
-                        val share = session.connectShare(server.share) as DiskShare
-                        share.getFileInformation(normalize("/"))
-                        conn.close()
-                    } finally {
-                        runCatching { client.close() }
+                        conn.use { connection ->
+                            val session = connection.authenticate(buildAuth(server, password))
+                            session.use { s ->
+                                val share = s.connectShare(server.share) as DiskShare
+                                share.use { diskShare ->
+                                    diskShare.getFileInformation(normalize("/"))
+                                }
+                            }
+                        }
                     }
                 }.map { }
         }
 
     fun disconnect(serverId: String) {
-        synchronized(clients) {
-            clients.remove(serverId)?.let { runCatching { it.close() } }
-        }
+        runBlocking { mutex.withLock { clients.remove(serverId)?.let { runCatching { it.close() } } } }
     }
 
     fun disconnectAll() {
-        synchronized(clients) {
-            clients.values.forEach { runCatching { it.close() } }
-            clients.clear()
+        runBlocking {
+            mutex.withLock {
+                clients.values.forEach { runCatching { it.close() } }
+                clients.clear()
+            }
         }
     }
 

@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class SmbCredentialsStore {
+    @Volatile
     private var cachedPrefs: SharedPreferences? = null
 
     private fun prefs(): SharedPreferences {

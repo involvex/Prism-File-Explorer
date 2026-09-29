@@ -182,7 +182,7 @@ fun SmbServersSection(mainActivityManager: MainActivityManager) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = server.displayLabel)
                         Text(
-                            text = "${server.username ?: "guest"}@${server.host}/${server.share}",
+                            text = "${server.username ?: stringResource(R.string.smb_guest_username)}@${server.host}/${server.share}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
