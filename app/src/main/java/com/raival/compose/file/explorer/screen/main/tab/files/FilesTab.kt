@@ -163,6 +163,19 @@ class FilesTab(
         }
     }
 
+    override fun onTabRemoved() {
+        disconnectRemoteConnections()
+    }
+
+    override fun onTabStopped() {
+        disconnectRemoteConnections()
+    }
+
+    private fun disconnectRemoteConnections() {
+        runCatching { globalClass.smbManager.disconnectAll() }
+        runCatching { globalClass.sftpManager.disconnectAll() }
+    }
+
     override val header: String
         get() = tabViewLabel
 

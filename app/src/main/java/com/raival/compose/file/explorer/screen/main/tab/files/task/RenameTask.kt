@@ -9,6 +9,8 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHold
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.SftpManager
+import com.raival.compose.file.explorer.screen.main.tab.smb.SmbManager
+import com.raival.compose.file.explorer.screen.main.tab.smb.holder.SmbFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
 import com.reandroid.archive.ZipAlign
@@ -142,6 +144,7 @@ class RenameTask(val sourceContent: List<ContentHolder>) : Task() {
             is ZipFileHolder -> handleZipFileRenaming()
             is LocalFileHolder -> handleLocalFileRenaming()
             is SftpFileHolder -> handleSftpFileRenaming()
+            is SmbFileHolder -> handleSmbFileRenaming()
             else -> {
                 markAsFailed(globalClass.getString(R.string.unsupported_source_type))
                 return
@@ -405,6 +408,46 @@ class RenameTask(val sourceContent: List<ContentHolder>) : Task() {
         parameters = params as RenameTaskParameters
     }
 
+    private suspend fun handleSmbFileRenaming() {
+        pendingContent.forEachIndexed { index, itemToRename ->
+            if (aborted) {
+                markAsAborted()
+                return
+            }
+
+            if (itemToRename.status == TaskContentStatus.PENDING) {
+                val progressPercent = 0.1f + (0.8f * (index.toFloat() / pendingContent.size))
+
+                progressMonitor.apply {
+                    contentName = itemToRename.source.displayName
+                    remainingContent = pendingContent.size - (index + 1)
+                    progress = progressPercent
+                }
+
+                try {
+                    val smbFile = itemToRename.source as SmbFileHolder
+                    // newPath for SMB is a remote absolute path (see getNewPath)
+                    val destName = itemToRename.newPath.substringAfterLast("/")
+                    val renamed = smbFile.renameRemote(destName)
+                    if (renamed != null) {
+                        itemToRename.status = TaskContentStatus.SUCCESS
+                    } else {
+                        throw Exception(globalClass.getString(R.string.failed_to_rename_file))
+                    }
+                } catch (e: Exception) {
+                    logger.logError(e)
+                    markAsFailed(
+                        globalClass.resources.getString(
+                            R.string.task_summary_failed,
+                            e.message ?: emptyString
+                        )
+                    )
+                    return
+                }
+            }
+        }
+    }
+
     private suspend fun handleSftpFileRenaming() {
         pendingContent.forEachIndexed { index, itemToRename ->
             if (aborted) {
@@ -450,6 +493,22 @@ class RenameTask(val sourceContent: List<ContentHolder>) : Task() {
         newName: String,
         index: Int,
     ): String {
+        if (content is SmbFileHolder) {
+            val parent = SmbManager.parentOf(content.normalizedPath) ?: "/"
+            if (sourceContent.size == 1) {
+                return SmbManager.join(parent, newName)
+            }
+            val newFileName = content.displayName.transformFileName(
+                newName = newName,
+                index = index,
+                textToFind = parameters!!.toFind,
+                replaceText = parameters!!.toReplace,
+                useRegex = parameters!!.useRegex,
+                onLastModified = { content.lastModified }
+            )
+            return SmbManager.join(parent, newFileName)
+        }
+
         if (content is SftpFileHolder) {
             val parent = SftpManager.parentOf(content.normalizedPath) ?: "/"
             if (sourceContent.size == 1) {

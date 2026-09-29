@@ -10,6 +10,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHo
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ShizukuFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.smb.holder.SmbFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
 import com.reandroid.archive.ZipAlign
 import java.io.File
@@ -118,6 +119,7 @@ class DeleteTask(
             is ZipFileHolder -> handleZipFileDeletion()
             is ShizukuFileHolder -> handleShizukuFileDeletion()
             is SftpFileHolder -> handleSftpFileDeletion()
+            is SmbFileHolder -> handleSmbFileDeletion()
             else -> {
                 markAsFailed(globalClass.getString(R.string.unsupported_source_type))
                 return
@@ -416,6 +418,40 @@ class DeleteTask(
                 try {
                     val sftpFile = itemToDelete.source as SftpFileHolder
                     sftpFile.deleteRemote(recursive = true)
+                    itemToDelete.status = TaskContentStatus.SUCCESS
+                } catch (e: Exception) {
+                    logger.logError(e)
+                    markAsFailed(
+                        globalClass.resources.getString(
+                            R.string.task_summary_failed,
+                            e.message ?: emptyString
+                        )
+                    )
+                    return
+                }
+            }
+        }
+    }
+
+    private suspend fun handleSmbFileDeletion() {
+        pendingContent.forEachIndexed { index, itemToDelete ->
+            if (aborted) {
+                markAsAborted()
+                return
+            }
+
+            if (itemToDelete.status == TaskContentStatus.PENDING) {
+                val progressPercent = 0.1f + (0.8f * (index.toFloat() / pendingContent.size))
+
+                progressMonitor.apply {
+                    contentName = itemToDelete.source.displayName
+                    remainingContent = pendingContent.size - (index + 1)
+                    progress = progressPercent
+                }
+
+                try {
+                    val smbFile = itemToDelete.source as SmbFileHolder
+                    smbFile.deleteRemote(recursive = true)
                     itemToDelete.status = TaskContentStatus.SUCCESS
                 } catch (e: Exception) {
                     logger.logError(e)

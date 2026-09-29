@@ -14,6 +14,8 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHo
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ShizukuFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.SftpManager
+import com.raival.compose.file.explorer.screen.main.tab.smb.SmbManager
+import com.raival.compose.file.explorer.screen.main.tab.smb.holder.SmbFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
 import com.reandroid.archive.ZipAlign
@@ -228,6 +230,15 @@ class CopyTask(
             sample is SftpFileHolder && destHolder is SftpFileHolder ->
                 copySftpFilesToSftp(sourcePath, destHolder)
 
+            sample is LocalFileHolder && destHolder is SmbFileHolder ->
+                copyLocalFilesToSmb(sourcePath, destHolder)
+
+            sample is SmbFileHolder && destHolder is LocalFileHolder ->
+                copySmbFilesToLocal(sourcePath, destHolder)
+
+            sample is SmbFileHolder && destHolder is SmbFileHolder ->
+                copySmbFilesToSmb(sourcePath, destHolder)
+
             else ->
                 throw IllegalStateException(globalClass.getString(R.string.unsupported_source_destination_combination))
         }
@@ -271,6 +282,8 @@ class CopyTask(
                 && (sourceFiles.first() as ZipFileHolder).zipTree.source.uniquePath == destHolder.zipTree.source.uniquePath
         val isSameSftpServer = (sourceFiles.first() is SftpFileHolder && destHolder is SftpFileHolder)
                 && (sourceFiles.first() as SftpFileHolder).server.id == destHolder.server.id
+        val isSameSmbServer = (sourceFiles.first() is SmbFileHolder && destHolder is SmbFileHolder)
+                && (sourceFiles.first() as SmbFileHolder).server.id == destHolder.server.id
 
         if (pendingFiles.isEmpty()) {
             sourceFiles.forEach { source ->
@@ -280,6 +293,7 @@ class CopyTask(
                     && (((source is ZipFileHolder && destHolder is ZipFileHolder) && (isSameZipFiles))
                             || (source is LocalFileHolder && destHolder is LocalFileHolder)
                             || (source is SftpFileHolder && destHolder is SftpFileHolder && isSameSftpServer))
+                            || (source is SmbFileHolder && destHolder is SmbFileHolder && isSameSmbServer)
                 ) {
                     val destPath = destHolder.uniquePath
                     if (!hasInvalidNesting && destPath.startsWith(source.uniquePath)) {
@@ -1374,6 +1388,270 @@ class CopyTask(
         }
     }
 
+    private fun copyLocalFilesToSmb(
+        sourcePath: String,
+        destinationHolder: SmbFileHolder
+    ) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        pendingFiles.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            if (item.status isNot TaskContentStatus.PENDING
+                && item.status isNot TaskContentStatus.REPLACE
+                && item.status isNot TaskContentStatus.CONFLICT
+            ) {
+                return@forEachIndexed
+            }
+
+            val sourceFile = (item.content as LocalFileHolder).file
+            val destPath =
+                SmbManager.join(destinationHolder.normalizedPath, item.relativePath)
+
+            updateProgress(index, sourceFile.name)
+
+            if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                return
+            }
+
+            if (item.status == TaskContentStatus.PENDING) {
+                val exists = runBlocking {
+                    runCatching {
+                        globalClass.smbManager.stat(destinationHolder.server, destPath)
+                    }.getOrNull() != null
+                }
+                if (exists && !handleConflict(item)) {
+                    return
+                }
+            }
+
+            when (item.status) {
+                TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                    item.status = if (runCatching {
+                            if (sourceFile.isDirectory) {
+                                runBlocking {
+                                    runCatching {
+                                        globalClass.smbManager.mkdir(
+                                            destinationHolder.server,
+                                            destPath
+                                        )
+                                    }
+                                }
+                                true
+                            } else {
+                                runBlocking {
+                                    globalClass.smbManager.uploadFromLocal(
+                                        destinationHolder.server,
+                                        sourceFile,
+                                        destPath
+                                    )
+                                }
+                                true
+                            }
+                        }.getOrElse {
+                            logger.logError(it)
+                            false
+                        }
+                    ) {
+                        TaskContentStatus.SUCCESS
+                    } else {
+                        TaskContentStatus.FAILED
+                    }
+                }
+
+                else -> { /* Already handled */ }
+            }
+        }
+    }
+
+    private fun copySmbFilesToLocal(
+        sourcePath: String,
+        destinationHolder: LocalFileHolder
+    ) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        pendingFiles.forEachIndexed { index, item ->
+            if (aborted) {
+                progressMonitor.status = TaskStatus.PAUSED
+                return
+            }
+
+            if (item.status isNot TaskContentStatus.PENDING
+                && item.status isNot TaskContentStatus.REPLACE
+                && item.status isNot TaskContentStatus.CONFLICT
+            ) {
+                return@forEachIndexed
+            }
+
+            val sourceHolder = item.content as SmbFileHolder
+            val destinationFile = File(destinationHolder.file, item.relativePath)
+
+            updateProgress(index, sourceHolder.displayName)
+
+            if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                return
+            }
+
+            if (item.status == TaskContentStatus.PENDING) {
+                val conflictExists = destinationFile.exists() && destinationFile.isFile
+                if (conflictExists && !handleConflict(item)) {
+                    return
+                }
+            }
+
+            when (item.status) {
+                TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                    item.status = if (runCatching {
+                            if (sourceHolder.isFolder) {
+                                destinationFile.mkdirs()
+                                true
+                            } else {
+                                runBlocking {
+                                    sourceHolder.downloadTo(destinationFile)
+                                }
+                                true
+                            }
+                        }.getOrElse {
+                            logger.logError(it)
+                            false
+                        }
+                    ) {
+                        TaskContentStatus.SUCCESS
+                    } else {
+                        TaskContentStatus.FAILED
+                    }
+                }
+
+                else -> { /* Already handled */ }
+            }
+        }
+    }
+
+    private fun copySmbFilesToSmb(
+        sourcePath: String,
+        destinationHolder: SmbFileHolder
+    ) {
+        progressMonitor.processName = globalClass.resources.getString(R.string.counting_files)
+        preparePendingFiles(sourcePath)
+
+        if (progressMonitor.status == TaskStatus.FAILED) return
+
+        progressMonitor.apply {
+            totalContent = pendingFiles.size
+            processName = if (deleteSourceFiles)
+                globalClass.resources.getString(R.string.moving)
+            else globalClass.resources.getString(R.string.copying)
+        }
+
+        val tempDir = File(globalClass.cacheDir, "smb_copy_${System.currentTimeMillis()}")
+        tempDir.mkdirs()
+
+        try {
+            pendingFiles.forEachIndexed { index, item ->
+                if (aborted) {
+                    progressMonitor.status = TaskStatus.PAUSED
+                    return
+                }
+
+                if (item.status isNot TaskContentStatus.PENDING
+                    && item.status isNot TaskContentStatus.REPLACE
+                    && item.status isNot TaskContentStatus.CONFLICT
+                ) {
+                    return@forEachIndexed
+                }
+
+                val sourceHolder = item.content as SmbFileHolder
+                val destPath =
+                    SmbManager.join(destinationHolder.normalizedPath, item.relativePath)
+
+                updateProgress(index, sourceHolder.displayName)
+
+                if (item.status == TaskContentStatus.CONFLICT && !handleConflict(item)) {
+                    return
+                }
+
+                if (item.status == TaskContentStatus.PENDING) {
+                    val exists = runBlocking {
+                        runCatching {
+                            globalClass.smbManager.stat(destinationHolder.server, destPath)
+                        }.getOrNull() != null
+                    }
+                    if (exists && !handleConflict(item)) {
+                        return
+                    }
+                }
+
+                when (item.status) {
+                    TaskContentStatus.PENDING, TaskContentStatus.REPLACE -> {
+                        item.status = if (runCatching {
+                                if (sourceHolder.isFolder) {
+                                    runBlocking {
+                                        runCatching {
+                                            globalClass.smbManager.mkdir(
+                                                destinationHolder.server,
+                                                destPath
+                                            )
+                                        }
+                                    }
+                                    true
+                                } else {
+                                    runBlocking {
+                                        val tmp = File(
+                                            tempDir,
+                                            "${System.nanoTime()}_${sourceHolder.displayName}"
+                                        )
+                                        sourceHolder.downloadTo(tmp)
+                                        globalClass.smbManager.uploadFromLocal(
+                                            destinationHolder.server,
+                                            tmp,
+                                            destPath
+                                        )
+                                        tmp.delete()
+                                    }
+                                    true
+                                }
+                            }.getOrElse {
+                                logger.logError(it)
+                                false
+                            }
+                        ) {
+                            TaskContentStatus.SUCCESS
+                        } else {
+                            TaskContentStatus.FAILED
+                        }
+                    }
+
+                    else -> { /* Already handled */ }
+                }
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
     private fun createZipEntryPath(basePath: String, relativePath: String): String {
         return if (basePath.isEmpty()) {
             relativePath
@@ -1450,6 +1728,12 @@ class CopyTask(
                 }
             }
 
+            is SmbFileHolder -> {
+                runBlocking {
+                    listSmbRecursive(startFile)
+                }
+            }
+
             else -> emptyList()
         }
     }
@@ -1479,6 +1763,46 @@ class CopyTask(
             }.getOrNull() ?: return
             children.forEach { entry ->
                 val child = SftpFileHolder(folder.server, entry.path)
+                val rel = "$prefix/${entry.name}"
+                result.add(
+                    TaskContentItem(
+                        content = child,
+                        relativePath = rel,
+                        status = TaskContentStatus.PENDING
+                    )
+                )
+                if (entry.isDirectory) walk(child, rel)
+            }
+        }
+        walk(startFile, startFile.displayName)
+        return result
+    }
+
+    private suspend fun listSmbRecursive(startFile: SmbFileHolder): List<TaskContentItem> {
+        if (startFile.isFile()) {
+            return listOf(
+                TaskContentItem(
+                    content = startFile,
+                    relativePath = startFile.displayName,
+                    status = TaskContentStatus.PENDING
+                )
+            )
+        }
+        val result = arrayListOf<TaskContentItem>()
+        // Include the top directory itself so it gets created at the destination
+        result.add(
+            TaskContentItem(
+                content = startFile,
+                relativePath = startFile.displayName,
+                status = TaskContentStatus.PENDING
+            )
+        )
+        suspend fun walk(folder: SmbFileHolder, prefix: String) {
+            val children = runCatching {
+                globalClass.smbManager.listDir(folder.server, folder.normalizedPath)
+            }.getOrNull() ?: return
+            children.forEach { entry ->
+                val child = SmbFileHolder(folder.server, entry.path)
                 val rel = "$prefix/${entry.name}"
                 result.add(
                     TaskContentItem(
