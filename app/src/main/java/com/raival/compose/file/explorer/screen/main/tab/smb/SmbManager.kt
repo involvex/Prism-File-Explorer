@@ -79,8 +79,8 @@ class SmbManager {
         password: String? = null,
         block: (DiskShare) -> T
     ): T = withContext(Dispatchers.IO) {
-        val conn = getOrCreateConnection(server, password)
-        val session = conn.authenticate(buildAuth(server, password))
+        val conn = getOrCreateConnection(server, password ?: resolvedPassword(server))
+        val session = conn.authenticate(buildAuth(server, password ?: resolvedPassword(server)))
         val share = session.connectShare(server.share) as DiskShare
         try {
             block(share)
@@ -88,6 +88,9 @@ class SmbManager {
             runCatching { share.close() }
         }
     }
+
+    private suspend fun resolvedPassword(server: SmbServer): String? =
+        if (server.authType == SmbAuthType.GUEST) null else credentialsStore.getPassword(server.id)
 
     private fun mkdirs(share: DiskShare, path: String) {
         val norm = normalize(path)
