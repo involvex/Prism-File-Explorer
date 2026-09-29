@@ -172,7 +172,8 @@ fun AddEditSmbServerDialog(
                                 } else {
                                     globalClass.getString(
                                         R.string.smb_connection_failed,
-                                        result.exceptionOrNull()?.message ?: "unknown"
+                                        result.exceptionOrNull()?.message
+                                            ?: globalClass.getString(R.string.unknown)
                                     )
                                 }
                             }
@@ -216,7 +217,7 @@ fun AddEditSmbServerDialog(
                     }
                 }
             ) {
-                Text("OK")
+                Text(stringResource(R.string.ok))
             }
         },
         dismissButton = {
