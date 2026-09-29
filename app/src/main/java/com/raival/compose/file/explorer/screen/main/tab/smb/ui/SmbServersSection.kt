@@ -99,10 +99,10 @@ fun SmbServersSection(mainActivityManager: MainActivityManager) {
                             }
                         }
                     }
-                ) { Text("OK") }
+                ) { Text(stringResource(R.string.ok)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }

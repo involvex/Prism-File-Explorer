@@ -2,6 +2,7 @@ package com.raival.compose.file.explorer.screen.main.tab.smb.holder
 
 import android.content.Context
 import com.raival.compose.file.explorer.App.Companion.globalClass
+import com.raival.compose.file.explorer.R
 import com.raival.compose.file.explorer.common.emptyString
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
@@ -153,7 +154,7 @@ class SmbFileHolder(
             } catch (e: Exception) {
                 globalClass.logger.logError(e)
                 withContext(Dispatchers.Main) {
-                    globalClass.showMsg(e.message ?: "Failed to open remote file")
+                    globalClass.showMsg(e.message ?: globalClass.getString(R.string.smb_failed_to_open_remote_file))
                 }
             }
         }

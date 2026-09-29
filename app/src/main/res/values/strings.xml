@@ -50,6 +50,8 @@
     <string name="move_to_recycle_bin">Move to Recycle Bin</string>
     <string name="create_archive">Create Archive</string>
     <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="smb_failed_to_open_remote_file">Failed to open remote file</string>
     <string name="added_to_bookmarks">Added to bookmarks</string>
     <string name="open_in_new_tab">Open in new tab</string>
     <string name="open_with">Open with</string>
