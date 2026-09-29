@@ -67,6 +67,8 @@ android {
 dependencies {
     "baselineProfile"(project(":baselineprofile"))
     implementation(libs.androidx.profileinstaller)
+
+    testImplementation(libs.androidx.junit)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // Local/File-based dependencies
