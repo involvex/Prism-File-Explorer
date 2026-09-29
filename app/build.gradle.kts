@@ -51,6 +51,10 @@ android {
         dexLayoutOptimization = true
     }
 
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
     packaging {
         resources {
             // bcutil 1.86 and bcprov 1.86 both ship META-INF/LICENSE.md
