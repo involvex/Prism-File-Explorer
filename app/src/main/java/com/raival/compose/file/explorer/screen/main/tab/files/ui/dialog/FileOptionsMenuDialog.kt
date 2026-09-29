@@ -54,6 +54,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHo
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.VirtualFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.smb.holder.SmbFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.DefaultOpeningMethods
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkBundleFileType
@@ -188,7 +189,7 @@ fun FileOptionsMenuDialog(
                 }
 
                 // Share
-                if (!hasFolders && (targetContentHolder is LocalFileHolder || targetContentHolder is SftpFileHolder)) {
+                if (!hasFolders && (targetContentHolder is LocalFileHolder || targetContentHolder is SftpFileHolder || targetContentHolder is SmbFileHolder)) {
                     IconButton(
                         modifier = Modifier.weight(1f),
                         onClick = {
@@ -338,8 +339,8 @@ fun FileOptionsMenuDialog(
                 }
             }
 
-            if (tab.activeFolder !is ZipFileHolder && tab.activeFolder !is SftpFileHolder &&
-                targetFiles.none { it is SftpFileHolder }
+            if (tab.activeFolder !is ZipFileHolder && tab.activeFolder !is SftpFileHolder && tab.activeFolder !is SmbFileHolder &&
+                targetFiles.none { it is SftpFileHolder || it is SmbFileHolder }
             ) {
                 FileOption(Icons.Rounded.Compress, stringResource(R.string.compress)) {
                     CompressTask(targetFiles).let { task ->

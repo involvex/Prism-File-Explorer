@@ -31,6 +31,7 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHo
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.VirtualFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.sftp.holder.SftpFileHolder
+import com.raival.compose.file.explorer.screen.main.tab.smb.holder.SmbFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileListCategory
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.anyFileType
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
@@ -477,6 +478,24 @@ class FilesTab(
                     return true
                 }
             }
+        } else if (activeFolder is SmbFileHolder) {
+            val newContent = runCatching {
+                (activeFolder as SmbFileHolder).listContent()
+            }.getOrNull()
+            // Check if the content size has changed
+            if (newContent != null && newContent.size != activeFolderContent.size) {
+                reloadFiles()
+                return true
+            }
+            // Check if any entry appeared/disappeared by path
+            if (newContent != null) {
+                val oldPaths = activeFolderContent.map { it.uniquePath }.toSet()
+                val freshPaths = newContent.map { it.uniquePath }.toSet()
+                if (oldPaths != freshPaths) {
+                    reloadFiles()
+                    return true
+                }
+            }
         } else if (activeFolder is ZipFileHolder) {
             val invalidZipTrees = globalClass.zipManager.validateArchiveTrees()
             if (invalidZipTrees.contains((activeFolder as ZipFileHolder).zipTree.source.uniquePath)) {
@@ -683,7 +702,7 @@ class FilesTab(
      * Only local content can be shared, other types must create a local copy first.
      */
     fun shareSelectedFiles(context: Context) {
-        val hasRemote = selectedFiles.values.any { it is SftpFileHolder }
+        val hasRemote = selectedFiles.values.any { it is SftpFileHolder || it is SmbFileHolder }
         if (hasRemote) {
             // Download remote files to cache first, then share
             scope.launch {
@@ -693,7 +712,22 @@ class FilesTab(
                     if (content is SftpFileHolder && content.isFile()) {
                         runCatching {
                             val tmp = File(
-                                File(globalClass.cacheDir, "sftp_share"),
+                                File(globalClass.cacheDir, "remote_share"),
+                                content.displayName
+                            ).apply { parentFile?.mkdirs() }
+                            content.downloadTo(tmp)
+                            uris.add(
+                                getUriForFile(
+                                    context,
+                                    globalClass.packageName + ".provider",
+                                    tmp
+                                )
+                            )
+                        }.onFailure { logger.logError(it) }
+                    } else if (content is SmbFileHolder && content.isFile()) {
+                        runCatching {
+                            val tmp = File(
+                                File(globalClass.cacheDir, "remote_share"),
                                 content.displayName
                             ).apply { parentFile?.mkdirs() }
                             content.downloadTo(tmp)
