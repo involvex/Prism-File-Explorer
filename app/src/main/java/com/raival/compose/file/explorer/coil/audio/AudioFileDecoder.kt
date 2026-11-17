@@ -15,12 +15,11 @@ class AudioFileDecoder(
     private val source: File,
 ) : Decoder {
     override suspend fun decode(): DecodeResult? {
+        val metadata = MediaMetadataRetriever()
         return try {
-            val metadata = MediaMetadataRetriever()
             metadata.setDataSource(source.absolutePath)
 
             val albumArt = metadata.embeddedPicture
-            metadata.release()
 
             if (albumArt != null) {
                 val bitmap = decodeByteArray(albumArt, 0, albumArt.size)
@@ -33,6 +32,10 @@ class AudioFileDecoder(
             } else null
         } catch (_: Exception) {
             null
+        } finally {
+            // Release even when setDataSource or embeddedPicture throws,
+            // otherwise every failed thumbnail leaks a native retriever.
+            metadata.release()
         }
     }
 
@@ -42,7 +45,7 @@ class AudioFileDecoder(
             options: Options,
             imageLoader: ImageLoader
         ): Decoder? {
-            val file = result.source.file().toFile()
+            val file = runCatching { result.source.file().toFile() }.getOrNull() ?: return null
             if (file.exists() && audioFileType.contains(file.extension)) {
                 return AudioFileDecoder(file)
             }

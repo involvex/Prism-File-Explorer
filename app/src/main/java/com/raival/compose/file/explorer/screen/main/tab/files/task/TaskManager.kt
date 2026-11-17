@@ -16,10 +16,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 class TaskManager {
     private val taskScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var isMonitoring = false
+    // Atomic check-and-set: two bringToForeground() calls must never both start
+    // a monitor, and a non-volatile boolean gave no visibility guarantee.
+    private val monitoring = AtomicBoolean(false)
 
     private val allTasks = ConcurrentHashMap<String, Task>()
 
@@ -62,14 +65,17 @@ class TaskManager {
     }
 
     suspend fun validateTasks(onFinished: (() -> Unit)? = null) {
-        val iterator = pendingTasks.iterator()
-        while (iterator.hasNext()) {
-            val task = iterator.next()
-            if (!task.validate()) {
-                invalidTasks.add(task)
-                // Use the iterator's remove method, which is safe
-                iterator.remove()
+        // Collections.synchronizedList does NOT make iteration safe on its own,
+        // and validate() is a suspend call so it cannot run inside the lock.
+        // Snapshot under the lock, validate outside, then remove by identity.
+        val candidates = synchronized(pendingTasks) { pendingTasks.toList() }
+        val invalid = candidates.filterNot { it.validate() }
+        if (invalid.isNotEmpty()) {
+            val invalidIds = invalid.map { it.id }.toSet()
+            synchronized(pendingTasks) {
+                pendingTasks.removeAll { it.id in invalidIds }
             }
+            invalidTasks.addAll(invalid)
         }
         onFinished?.invoke()
     }
@@ -176,28 +182,40 @@ class TaskManager {
     }
 
     fun bringToForeground(task: Task) {
-        if (!isMonitoring) {
-            taskScope.launch {
-                monitorRunningTask(task)
-            }
+        // Always point the dialog at the newest task, even when a monitor is
+        // already running (the service supports multiple concurrent tasks).
+        runningTaskDialogInfo.showOrSwitch(task)
+        if (monitoring.compareAndSet(false, true)) {
+            taskScope.launch { monitorRunningTasks() }
         }
     }
 
-    private suspend fun monitorRunningTask(task: Task) {
-        isMonitoring = true
-        runningTaskDialogInfo.show(task)
-        try {
-            while (runningTaskDialogInfo.showDialog) {
-                if (!runningTasks.contains(task)) {
-                    break
-                }
+    private fun isRunning(task: Task): Boolean = synchronized(runningTasks) {
+        runningTasks.contains(task)
+    }
 
-                runningTaskDialogInfo.updateInfo(task.progressMonitor)
+    private suspend fun monitorRunningTasks() {
+        try {
+            while (true) {
+                // The user may have dismissed the dialog while the task continues.
+                if (!runningTaskDialogInfo.showDialog) break
+
+                val current = runningTaskDialogInfo.linkedTask
+                if (current != null && isRunning(current)) {
+                    runningTaskDialogInfo.updateInfo(current.progressMonitor)
+                } else {
+                    // Current task finished; follow another one if any is left.
+                    val next = synchronized(runningTasks) { runningTasks.firstOrNull() }
+                    if (next != null) runningTaskDialogInfo.showOrSwitch(next) else break
+                }
                 delay(100)
             }
         } finally {
-            isMonitoring = false
-            runningTaskDialogInfo.hide()
+            monitoring.set(false)
+            // Don't hide a dialog that now belongs to a different task.
+            if (synchronized(runningTasks) { runningTasks.isEmpty() }) {
+                runningTaskDialogInfo.hide()
+            }
         }
     }
 
@@ -266,6 +284,13 @@ class TaskManager {
             if (showDialog) return
 
             linkedTask = task
+            showDialog = true
+        }
+
+        /** Switch the visible task without tearing down an active monitor. */
+        fun showOrSwitch(task: Task) {
+            linkedTask = task
+            progressMonitor = null
             showDialog = true
         }
 

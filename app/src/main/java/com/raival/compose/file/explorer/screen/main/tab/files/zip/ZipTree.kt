@@ -82,11 +82,14 @@ class ZipTree(
         zipEntries.clear()
 
         try {
-            val zipFile = ZipFile(source.file)
-            val enum: Enumeration<*> = zipFile.entries()
-            while (enum.hasMoreElements()) {
-                val entry = enum.nextElement() as ZipEntry
-                zipEntries.put(entry.name, entry)
+            // Close the ZipFile after enumerating; otherwise every rebuild leaks
+            // an open file descriptor until the process dies.
+            ZipFile(source.file).use { zipFile ->
+                val enum: Enumeration<*> = zipFile.entries()
+                while (enum.hasMoreElements()) {
+                    val entry = enum.nextElement() as ZipEntry
+                    zipEntries.put(entry.name, entry)
+                }
             }
         } catch (e: Exception) {
             logger.logError(e)

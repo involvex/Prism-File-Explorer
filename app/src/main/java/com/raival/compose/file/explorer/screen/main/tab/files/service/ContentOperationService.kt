@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.App.Companion.logger
 import com.raival.compose.file.explorer.R
@@ -72,7 +73,14 @@ class ContentOperationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.let { intent ->
+        // A sticky restart has no action/task id. Don't leave an orphaned
+        // foreground notification running forever.
+        if (intent == null || intent.action == null) {
+            if (runningTaskIds.isEmpty()) stopSelf()
+            return START_NOT_STICKY
+        }
+
+        intent.let { intent ->
             when (intent.action) {
                 ACTION_START_TASK -> {
                     val taskId = intent.getStringExtra(TASK_ID)
@@ -89,7 +97,7 @@ class ContentOperationService : Service() {
                 }
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun removeTask(taskId: String) {
@@ -174,7 +182,8 @@ class ContentOperationService : Service() {
                 action = ACTION_START_TASK
                 putExtra(TASK_ID, taskId)
             }
-            context.startService(intent)
+            // From background this must be a foreground-service start on API 31+.
+            ContextCompat.startForegroundService(context, intent)
         }
 
         fun removeBackgroundTask(context: Context, taskId: String) {
@@ -182,6 +191,7 @@ class ContentOperationService : Service() {
                 action = ACTION_REMOVE_TASK
                 putExtra(TASK_ID, taskId)
             }
+            // The service is already running when removing a task.
             context.startService(intent)
         }
     }

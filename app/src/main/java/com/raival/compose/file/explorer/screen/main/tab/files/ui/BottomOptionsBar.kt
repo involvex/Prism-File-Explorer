@@ -164,7 +164,7 @@ fun BottomOptionsBar(tab: FilesTab) {
                 tab.activeFolderContent.forEach {
                     tab.selectedFiles[it.uniquePath] = it
                 }
-                tab.quickReloadFiles()
+                tab.onSelectionChange()
                 tab.toggleDeleteConfirmationDialog(true)
             }
         } else {
@@ -192,7 +192,7 @@ fun BottomOptionsBar(tab: FilesTab) {
                     tab.activeFolderContent.forEach {
                         tab.selectedFiles[it.uniquePath] = it
                     }
-                    tab.quickReloadFiles()
+                    tab.onSelectionChange()
                 }
             }
 

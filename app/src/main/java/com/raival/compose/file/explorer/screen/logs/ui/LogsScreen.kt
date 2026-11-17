@@ -41,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,8 +64,14 @@ import com.raival.compose.file.explorer.common.LogHolder
 import com.raival.compose.file.explorer.common.copyToClipboard
 import com.raival.compose.file.explorer.common.emptyString
 import com.raival.compose.file.explorer.common.ui.Space
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 enum class LogType(
     val displayName: String,
@@ -98,10 +105,25 @@ fun LogsScreen(
     var selectedLogType by remember { mutableStateOf(LogType.ALL) }
     var showClearDialog by remember { mutableStateOf(false) }
     var isClearing by remember { mutableStateOf(false) }
+    var crashLog by remember { mutableStateOf<LogHolder?>(null) }
+
+    // Surface the synchronous crash record written by the uncaught handler.
+    LaunchedEffect(Unit) {
+        crashLog = withContext(Dispatchers.IO) {
+            val file = File(globalClass.filesDir, "crash/last-crash.txt")
+            if (!file.exists()) return@withContext null
+            LogHolder(
+                message = file.readText(),
+                timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                    .format(Date(file.lastModified()))
+            )
+        }
+    }
 
     // Combine all logs with their types
-    val combinedLogs = remember(errors, warnings, infos) {
+    val combinedLogs = remember(errors, warnings, infos, crashLog) {
         val allLogs = mutableListOf<CombinedLog>()
+        crashLog?.let { allLogs.add(CombinedLog(it, LogType.ERROR)) }
         errors.forEach { allLogs.add(CombinedLog(it, LogType.ERROR)) }
         warnings.forEach { allLogs.add(CombinedLog(it, LogType.WARNING)) }
         infos.forEach { allLogs.add(CombinedLog(it, LogType.INFO)) }

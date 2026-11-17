@@ -1,8 +1,6 @@
 package com.raival.compose.file.explorer.screen.main.tab
 
 import com.raival.compose.file.explorer.App.Companion.globalClass
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 abstract class Tab {
@@ -26,7 +24,9 @@ abstract class Tab {
 
     fun requestHomeToolbarUpdate() {
         if (globalClass.mainActivityManager.getActiveTab() == this) {
-            CoroutineScope(Dispatchers.IO).launch {
+            // Use the application scope instead of spawning an unmanaged scope
+            // on every selection / reload event.
+            globalClass.applicationScope.launch {
                 globalClass.mainActivityManager.updateHomeToolbar(
                     title = getTitle(),
                     subtitle = getSubtitle()

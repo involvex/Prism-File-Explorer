@@ -9,6 +9,7 @@ import com.raival.compose.file.explorer.common.listFilesAndEmptyDirs
 import com.raival.compose.file.explorer.common.orIf
 import com.raival.compose.file.explorer.common.toFormattedDate
 import com.raival.compose.file.explorer.common.toRelativeString
+import com.raival.compose.file.explorer.shellQuote
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ContentHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.LocalFileHolder
 import com.raival.compose.file.explorer.screen.main.tab.files.holder.ShizukuFileHolder
@@ -941,12 +942,12 @@ class CopyTask(
             } else {
                 destination.parentFile?.mkdirs()
                 val cmd = if (overwrite) {
-                    "cp -f '${source.path}' '${destination.absolutePath}'"
+                    "cp -f ${source.path.shellQuote()} ${destination.absolutePath.shellQuote()}"
                 } else {
-                    "cp '${source.path}' '${destination.absolutePath}'"
+                    "cp ${source.path.shellQuote()} ${destination.absolutePath.shellQuote()}"
                 }
-                val result = globalClass.shizukuManager.runShellCommand(cmd)
-                result != null && !result.contains("denied") && destination.exists()
+                val result = globalClass.shizukuManager.runShellCommandResult(cmd)
+                result?.isSuccess == true && destination.exists()
             }
         } catch (e: Exception) {
             logger.logError(e)
@@ -1081,8 +1082,8 @@ class CopyTask(
             }
 
             if (item.status == TaskContentStatus.PENDING) {
-                val destExistsCmd = "test -e '$destPath' && echo 'yes'"
-                val exists = runShizukuShellCommand(destExistsCmd)
+                val destExistsCmd = "test -e ${destPath.shellQuote()} && echo 'yes'"
+                val exists = globalClass.shizukuManager.runShellCommand(destExistsCmd)
                 if (exists?.trim() == "yes" && !handleConflict(item)) {
                     return
                 }
@@ -1111,15 +1112,14 @@ class CopyTask(
     private fun copyLocalToShizukuFile(source: java.io.File, destPath: String, overwrite: Boolean): Boolean {
         return try {
             if (source.isDirectory) {
-                runShizukuShellCommand("mkdir -p '$destPath'") != null
+                runShizukuShellCommandResult("mkdir -p ${destPath.shellQuote()}")?.isSuccess == true
             } else {
                 val cmd = if (overwrite) {
-                    "cp -f '${source.absolutePath}' '$destPath'"
+                    "cp -f ${source.absolutePath.shellQuote()} ${destPath.shellQuote()}"
                 } else {
-                    "cp '${source.absolutePath}' '$destPath'"
+                    "cp ${source.absolutePath.shellQuote()} ${destPath.shellQuote()}"
                 }
-                val result = runShizukuShellCommand(cmd)
-                result != null && !result.contains("denied")
+                runShizukuShellCommandResult(cmd)?.isSuccess == true
             }
         } catch (e: Exception) {
             logger.logError(e)
@@ -1127,9 +1127,8 @@ class CopyTask(
         }
     }
 
-    private fun runShizukuShellCommand(command: String): String? {
-        return globalClass.shizukuManager.runShellCommand(command)
-    }
+    private fun runShizukuShellCommandResult(command: String) =
+        globalClass.shizukuManager.runShellCommandResult(command)
 
     // ---------- SFTP transfers ----------
 

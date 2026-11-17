@@ -41,7 +41,7 @@ class PdfFileDecoder(val source: File) : Decoder {
             options: Options,
             imageLoader: ImageLoader
         ): Decoder? {
-            val file = result.source.file().toFile()
+            val file = runCatching { result.source.file().toFile() }.getOrNull() ?: return null
             if (file.exists() && file.extension.lowercase() == pdfFileType) {
                 return PdfFileDecoder(file)
             }

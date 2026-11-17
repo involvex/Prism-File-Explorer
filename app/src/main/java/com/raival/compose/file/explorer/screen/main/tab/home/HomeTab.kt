@@ -29,13 +29,20 @@ import com.raival.compose.file.explorer.screen.main.tab.home.holder.HomeCategory
 import com.raival.compose.file.explorer.screen.main.tab.home.holder.RecentFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
 
 class HomeTab : Tab() {
     override val id = globalClass.generateUid()
-    val scope = CoroutineScope(Dispatchers.IO)
+    private val tabJob = SupervisorJob()
+    val scope = CoroutineScope(Dispatchers.IO + tabJob)
     override val header = globalClass.getString(R.string.home_tab_header)
+
+    override fun onTabRemoved() {
+        tabJob.cancel()
+    }
     val recentFiles = mutableStateListOf<RecentFile>()
     val pinnedFiles = arrayListOf<LocalFileHolder>()
 

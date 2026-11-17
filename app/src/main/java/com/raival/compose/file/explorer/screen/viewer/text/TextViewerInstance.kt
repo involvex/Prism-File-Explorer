@@ -47,6 +47,8 @@ import io.github.rosemoe.sora.widget.component.Magnifier
 import io.github.rosemoe.sora.widget.schemes.EditorColorScheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -60,7 +62,7 @@ class TextViewerInstance(
     override val id: String
 ) : ViewerInstance {
     val uriContent = uri.getUriInfo(globalClass)
-    val scope = CoroutineScope(Dispatchers.IO)
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val warningDialogProperties = WarningDialogProperties()
     val searcher = Searcher()
@@ -384,6 +386,6 @@ class TextViewerInstance(
     }
 
     override fun onClose() {
-
+        scope.cancel()
     }
 }

@@ -245,7 +245,12 @@ class ShizukuManager {
 
     fun isAccessible(): Boolean = _shizukuEnabled.value
 
-    fun runShellCommand(command: String): String? {
+    data class ShellResult(val exitCode: Int, val output: String) {
+        val isSuccess: Boolean get() = exitCode == 0
+    }
+
+    /** Raw "<exit code>\n<output>" string from the shell service. */
+    private fun runShellCommandRaw(command: String): String? {
         if (!_shizukuEnabled.value) return null
         return try {
             val binder = shellBinder
@@ -269,5 +274,28 @@ class ShizukuManager {
         }
     }
 
+    fun runShellCommandResult(command: String): ShellResult? =
+        parseShellResult(runShellCommandRaw(command))
+
+    /** For read-only commands: returns stdout only when the command succeeded. */
+    fun runShellCommand(command: String): String? =
+        runShellCommandResult(command)?.let { if (it.isSuccess) it.output else null }
+
     fun newProcess(): android.os.Process? = null
+}
+
+/**
+ * Quote a single shell argument. Paths come from filenames, which may contain
+ * quotes, spaces, `$` or backticks. Naive `'...'` interpolation lets a crafted
+ * filename break out and execute arbitrary commands with shell privileges.
+ */
+fun String.shellQuote(): String = "'" + replace("'", "'\\''") + "'"
+
+/** Pure parser for the shell service's "<exit code>\n<combined output>" wire format. */
+fun parseShellResult(raw: String?): ShizukuManager.ShellResult? {
+    if (raw == null) return null
+    val separator = raw.indexOf('\n')
+    if (separator < 0) return null
+    val code = raw.substring(0, separator).toIntOrNull() ?: return null
+    return ShizukuManager.ShellResult(code, raw.substring(separator + 1))
 }

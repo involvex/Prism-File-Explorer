@@ -11,6 +11,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -22,7 +23,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.raival.compose.file.explorer.App.Companion.globalClass
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import com.raival.compose.file.explorer.screen.preferences.constant.ThemePreference
+import com.raival.compose.file.explorer.screen.preferences.misc.PrefSnapshot
 
 private val DarkColorScheme = darkColorScheme()
 
@@ -64,19 +68,23 @@ fun FileExplorerTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    val manager = globalClass.preferencesManager
+    // Collect the preference snapshot as a StateFlow instead of reaching into
+    // mutable property getters during composition.
+    val prefs by PrefSnapshot.flow.collectAsState()
+    val theme = prefs[intPreferencesKey("theme")] ?: ThemePreference.SYSTEM.ordinal
+    val dynamicColor = prefs[booleanPreferencesKey("dynamicColor")] ?: true
     val darkTheme: Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        if (manager.theme == ThemePreference.SYSTEM.ordinal) {
+        if (theme == ThemePreference.SYSTEM.ordinal) {
             isSystemInDarkTheme()
-        } else manager.theme == ThemePreference.DARK.ordinal
+        } else theme == ThemePreference.DARK.ordinal
     } else {
-        manager.theme == ThemePreference.DARK.ordinal
+        theme == ThemePreference.DARK.ordinal
     }
 
     fun getTheme(): ColorScheme {
-        val useDynamic = manager.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        val useDynamic = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         return if (useDynamic) {
-            when (manager.theme) {
+            when (theme) {
                 ThemePreference.LIGHT.ordinal -> dynamicLightColorScheme(context)
                 ThemePreference.DARK.ordinal -> dynamicDarkColorScheme(context)
                 ThemePreference.HACKER.ordinal -> HackerColorScheme
@@ -85,7 +93,7 @@ fun FileExplorerTheme(
                 )
             }
         } else {
-            when (manager.theme) {
+            when (theme) {
                 ThemePreference.LIGHT.ordinal -> LightColorScheme
                 ThemePreference.DARK.ordinal -> DarkColorScheme
                 ThemePreference.HACKER.ordinal -> HackerColorScheme
@@ -98,7 +106,7 @@ fun FileExplorerTheme(
         mutableStateOf(getTheme())
     }
 
-    LaunchedEffect(manager.theme, manager.dynamicColor) {
+    LaunchedEffect(theme, dynamicColor) {
         colorScheme = getTheme()
     }
 
@@ -107,7 +115,7 @@ fun FileExplorerTheme(
     if (!view.isInEditMode) {
         SideEffect {
             (view.context as? Activity)?.window?.let {
-                val isHackerTheme = manager.theme == ThemePreference.HACKER.ordinal
+                val isHackerTheme = theme == ThemePreference.HACKER.ordinal
                 WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars =
                     if (isHackerTheme) false else !darkTheme
             }

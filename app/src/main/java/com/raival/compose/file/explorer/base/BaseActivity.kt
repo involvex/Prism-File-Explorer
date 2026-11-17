@@ -136,7 +136,13 @@ abstract class BaseActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequestCode) {
-            onPermissionGranted()
+            if (grantResults.isNotEmpty() &&
+                grantResults.all { it == android.content.pm.PackageManager.PERMISSION_GRANTED }
+            ) {
+                onPermissionGranted()
+            }
+            // Otherwise keep showing the permission screen instead of opening
+            // the app without storage access.
         }
     }
 

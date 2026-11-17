@@ -76,6 +76,8 @@ import com.raival.compose.file.explorer.common.ui.BottomSheetDialog
 import com.raival.compose.file.explorer.common.ui.Space
 import com.raival.compose.file.explorer.screen.main.tab.files.FilesTab
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.ApkInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +88,8 @@ fun ApkPreviewDialog(
 ) {
     if (show) {
         val context = LocalContext.current
-        val apkFile = tab.targetFile!!
+        // The target can be cleared while the dialog is open; never crash on it.
+        val apkFile = tab.targetFile ?: return
         val packageManager = globalClass.packageManager
 
         var apkInfo by remember { mutableStateOf<ApkInfo?>(null) }
@@ -94,21 +97,23 @@ fun ApkPreviewDialog(
         var selectedTab by remember { mutableIntStateOf(0) }
         var showExtraDetails by remember { mutableStateOf(false) }
 
-        LaunchedEffect(Unit) {
-            try {
-                val archiveInfo = packageManager.getPackageArchiveInfo(
-                    apkFile.uniquePath,
-                    PackageManager.GET_PERMISSIONS
-                )
+        LaunchedEffect(apkFile.uniquePath) {
+            isLoading = true
+            // APK parsing and resource loading are heavy I/O/CPU work; doing them in
+            // a Main-dispatcher LaunchedEffect froze the UI while the dialog opened.
+            val info = withContext(Dispatchers.IO) {
+                runCatching {
+                    val archiveInfo = packageManager.getPackageArchiveInfo(
+                        apkFile.uniquePath,
+                        PackageManager.GET_PERMISSIONS
+                    ) ?: return@runCatching null
 
-                if (archiveInfo != null) {
                     archiveInfo.applicationInfo?.sourceDir = apkFile.uniquePath
                     archiveInfo.applicationInfo?.publicSourceDir = apkFile.uniquePath
 
                     val icon = archiveInfo.applicationInfo?.loadIcon(packageManager)
                     val appName = archiveInfo.applicationInfo?.loadLabel(packageManager).toString()
 
-                    // Check if app is installed
                     var isInstalled = false
                     var installedVersion: String? = null
                     var installTime: String? = null
@@ -125,9 +130,7 @@ fun ApkPreviewDialog(
                         // App not installed
                     }
 
-                    val permissions = archiveInfo.requestedPermissions?.toList() ?: emptyList()
-
-                    apkInfo = ApkInfo(
+                    ApkInfo(
                         appName = appName,
                         packageName = archiveInfo.packageName,
                         versionName = archiveInfo.versionName
@@ -135,6 +138,7 @@ fun ApkPreviewDialog(
                         versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                             archiveInfo.longVersionCode.toString()
                         } else {
+                            @Suppress("DEPRECATION")
                             archiveInfo.versionCode.toString()
                         },
                         icon = icon,
@@ -143,16 +147,14 @@ fun ApkPreviewDialog(
                         installedVersion = installedVersion,
                         minSdkVersion = archiveInfo.applicationInfo?.minSdkVersion,
                         targetSdkVersion = archiveInfo.applicationInfo?.targetSdkVersion,
-                        permissions = permissions,
+                        permissions = archiveInfo.requestedPermissions?.toList() ?: emptyList(),
                         installTime = installTime,
                         lastUpdateTime = lastUpdateTime
                     )
-                }
-            } catch (e: Exception) {
-                logger.logError(e)
-            } finally {
-                isLoading = false
+                }.onFailure { logger.logError(it) }.getOrNull()
             }
+            apkInfo = info
+            isLoading = false
         }
 
         BottomSheetDialog(onDismissRequest = onDismissRequest) {

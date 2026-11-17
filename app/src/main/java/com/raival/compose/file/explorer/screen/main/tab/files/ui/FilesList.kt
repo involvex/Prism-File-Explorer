@@ -186,6 +186,13 @@ fun FilesListColumns(tab: FilesTab) {
     val selectionHighlightColor = colorScheme.surfaceContainerHigh.copy(alpha = 1f)
     val highlightColor = colorScheme.primary.copy(alpha = 0.05f)
 
+    // Resolve sizing once per list. Doing this per row forced a blocking DataStore
+    // read + Gson parse on the main thread for every visible item on every recomposition.
+    val itemSize = tab.viewConfig.itemSize
+    val itemSpace = getFileListSpace(itemSize)
+    val itemIconSize = getFileListIconSize(itemSize)
+    val itemFontSize = getFileListFontSize(itemSize)
+
     LazyVerticalGrid(
         modifier = Modifier.fillMaxSize(),
         state = tab.activeListState,
@@ -193,11 +200,12 @@ fun FilesListColumns(tab: FilesTab) {
     ) {
         itemsIndexed(
             tab.activeFolderContent,
-            key = { _, item -> item.uid }
+            // uid is regenerated on every reload; uniquePath keeps row identity stable.
+            key = { _, item -> "${item::class.simpleName}:${item.uniquePath}" }
         ) { index, item ->
             val currentItemPath = item.uniquePath
-            val isAlreadySelected = tab.selectedFiles.containsKey(currentItemPath)
-            var isSelectedItem by remember(isAlreadySelected) { mutableStateOf(isAlreadySelected) }
+            // Selection is Compose state on the tab; no local copy to drift out of sync.
+            val isSelectedItem = tab.selectedFiles.containsKey(currentItemPath)
             ColumnFileItem(
                 item = item,
                 index = index,
@@ -207,7 +215,9 @@ fun FilesListColumns(tab: FilesTab) {
                 context = context,
                 viewConfigs = tab.viewConfig,
                 isSelectedItem = isSelectedItem,
-                onSelection = { isSelectedItem = it }
+                itemSpace = itemSpace,
+                itemIconSize = itemIconSize,
+                itemFontSize = itemFontSize
             )
         }
     }
@@ -220,6 +230,10 @@ fun FilesListGrid(tab: FilesTab) {
     val selectionHighlightColor = colorScheme.surfaceContainerHigh.copy(alpha = 1f)
     val highlightColor = colorScheme.primary.copy(alpha = 0.05f)
 
+    val itemSize = tab.viewConfig.itemSize
+    val itemIconSize = getFileListIconSize(itemSize)
+    val itemFontSize = getFileListFontSize(itemSize)
+
     LazyVerticalGrid(
         state = tab.activeListState,
         columns = GridCells.Fixed(tab.viewConfig.columnCount),
@@ -227,11 +241,10 @@ fun FilesListGrid(tab: FilesTab) {
     ) {
         itemsIndexed(
             tab.activeFolderContent,
-            key = { _, item -> item.uid }
+            key = { _, item -> "${item::class.simpleName}:${item.uniquePath}" }
         ) { index, item ->
             val currentItemPath = item.uniquePath
-            val isAlreadySelected = tab.selectedFiles.containsKey(currentItemPath)
-            var isSelectedItem by remember(isAlreadySelected) { mutableStateOf(isAlreadySelected) }
+            val isSelectedItem = tab.selectedFiles.containsKey(currentItemPath)
             GridFileItem(
                 itemPath = currentItemPath,
                 isSelected = isSelectedItem,
@@ -242,7 +255,8 @@ fun FilesListGrid(tab: FilesTab) {
                 highlightColor = highlightColor,
                 context = context,
                 viewConfigs = tab.viewConfig,
-                onSelection = { isSelectedItem = it }
+                itemIconSize = itemIconSize,
+                itemFontSize = itemFontSize
             )
         }
     }
@@ -259,18 +273,18 @@ private fun ColumnFileItem(
     context: Context,
     currentItemPath: String = item.uniquePath,
     isSelectedItem: Boolean,
-    onSelection: (Boolean) -> Unit,
-    viewConfigs: ViewConfigs
+    viewConfigs: ViewConfigs,
+    itemSpace: Int,
+    itemIconSize: Int,
+    itemFontSize: Int
 ) {
     fun toggleSelection() {
         if (tab.selectedFiles.containsKey(currentItemPath)) {
             tab.selectedFiles.remove(currentItemPath)
             tab.lastSelectedFileIndex = -1
-            onSelection(false)
         } else {
             tab.selectedFiles[currentItemPath] = item
             tab.lastSelectedFileIndex = index
-            onSelection(true)
         }
         tab.onSelectionChange()
     }
@@ -304,7 +318,7 @@ private fun ColumnFileItem(
                 }
             )
     ) {
-        Space(size = getFileListSpace(tab.activeFolder).dp)
+        Space(size = itemSpace.dp)
 
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -312,7 +326,7 @@ private fun ColumnFileItem(
         ) {
             FileIcon(
                 item = item,
-                size = getFileListIconSize(tab.activeFolder).dp,
+                size = itemIconSize.dp,
                 viewConfigs = viewConfigs,
                 onClick = { toggleSelection() },
                 onLongClick = { handleLongClick(tab, currentItemPath, item, index) }
@@ -321,13 +335,11 @@ private fun ColumnFileItem(
             Space(size = 8.dp)
 
             Column(Modifier.weight(1f)) {
-                val fontSize = getFileListFontSize(tab.activeFolder)
-
                 Text(
                     text = item.displayName,
-                    fontSize = fontSize.sp,
+                    fontSize = itemFontSize.sp,
                     maxLines = 1,
-                    lineHeight = (fontSize + 2).sp,
+                    lineHeight = (itemFontSize + 2).sp,
                     overflow = TextOverflow.Ellipsis,
                     color = if (tab.highlightedFiles.contains(currentItemPath)) {
                         colorScheme.primary
@@ -339,13 +351,13 @@ private fun ColumnFileItem(
                 FileDetails(
                     item = item,
                     currentItemPath = currentItemPath,
-                    fontSize = fontSize,
+                    fontSize = itemFontSize,
                     isHighlighted = tab.highlightedFiles.contains(currentItemPath)
                 )
             }
         }
 
-        Space(size = getFileListSpace(tab.activeFolder).dp)
+        Space(size = itemSpace.dp)
 
         HorizontalDivider(
             modifier = Modifier.padding(start = 56.dp),
@@ -365,18 +377,17 @@ private fun GridFileItem(
     context: Context,
     itemPath: String,
     isSelected: Boolean,
-    onSelection: (Boolean) -> Unit,
-    viewConfigs: ViewConfigs
+    viewConfigs: ViewConfigs,
+    itemIconSize: Int,
+    itemFontSize: Int
 ) {
     fun toggleSelection() {
         if (tab.selectedFiles.containsKey(itemPath)) {
             tab.selectedFiles.remove(itemPath)
             tab.lastSelectedFileIndex = -1
-            onSelection(false)
         } else {
             tab.selectedFiles[itemPath] = item
             tab.lastSelectedFileIndex = index
-            onSelection(true)
         }
         tab.onSelectionChange()
     }
@@ -425,7 +436,7 @@ private fun GridFileItem(
             ) {
                 FileIcon(
                     item = item,
-                    size = (getFileListIconSize(tab.activeFolder) * 1.5).dp,
+                    size = (itemIconSize * 1.5).dp,
                     onClick = {
                         if (tab.selectedFiles.isNotEmpty()) {
                             toggleSelection()
@@ -469,7 +480,7 @@ private fun GridFileItem(
                             )
                             .padding(4.dp)
                     ) {
-                        val fontSize = getFileListFontSize(tab.activeFolder) * 0.8
+                        val fontSize = itemFontSize * 0.8
                         Text(
                             text = item.displayName,
                             fontSize = fontSize.sp,
@@ -490,7 +501,7 @@ private fun GridFileItem(
             }
             if (!viewConfigs.galleryMode) {
                 Spacer(modifier = Modifier.height(4.dp))
-                val fontSize = getFileListFontSize(tab.activeFolder) * 0.8
+                val fontSize = itemFontSize * 0.8
                 Text(
                     text = item.displayName,
                     fontSize = fontSize.sp,
@@ -536,17 +547,17 @@ private fun FileIcon(
                 )
                 .graphicsLayer { alpha = if (item.isHidden()) 0.4f else 1f },
         ) {
-            var useCoil by remember(item.uid) {
+            var useCoil by remember(item.uniquePath) {
                 mutableStateOf(canUseCoil(item))
+            }
+            val imageRequest = remember(item.uniquePath) {
+                ImageRequest.Builder(globalClass).data(item).build()
             }
 
             if (useCoil) {
                 AsyncImage(
                     modifier = sizeModifier,
-                    model = ImageRequest
-                        .Builder(globalClass)
-                        .data(item)
-                        .build(),
+                    model = imageRequest,
                     filterQuality = FilterQuality.Low,
                     contentScale = if (viewConfigs.cropThumbnails) ContentScale.Crop else ContentScale.Fit,
                     contentDescription = null,
@@ -610,44 +621,6 @@ private fun FileDetails(
     )
 }
 
-@Composable
-private fun FileDetailsCompact(
-    item: ContentHolder,
-    currentItemPath: String,
-    isHighlighted: Boolean
-) {
-    Isolate {
-        var details by remember(
-            key1 = currentItemPath,
-            key2 = item.lastModified
-        ) { mutableStateOf(emptyString) }
-
-        LaunchedEffect(
-            key1 = currentItemPath,
-            key2 = item.lastModified
-        ) {
-            if (details.isEmpty()) {
-                val det = item.getDetails()
-                withContext(Dispatchers.Main) { details = det }
-            }
-        }
-
-        Text(
-            modifier = Modifier.alpha(0.6f),
-            text = details,
-            fontSize = 10.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            color = if (isHighlighted) {
-                colorScheme.primary
-            } else {
-                colorScheme.onSurfaceVariant
-            }
-        )
-    }
-}
-
 private fun handleLongClick(
     tab: FilesTab,
     currentItemPath: String,
@@ -683,5 +656,7 @@ private fun handleLongClick(
         }
     }
     tab.lastSelectedFileIndex = index
-    tab.quickReloadFiles()
+    // Selection is observable state now; only the toolbar/bottom-bar snapshot
+    // needs refreshing, not the whole content list.
+    tab.onSelectionChange()
 }

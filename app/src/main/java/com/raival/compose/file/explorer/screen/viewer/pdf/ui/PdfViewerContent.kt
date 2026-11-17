@@ -22,7 +22,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -85,19 +84,22 @@ fun PdfViewerContent(
         ) { uri: android.net.Uri? ->
             if (uri != null) {
                 coroutineScope.launch {
-                    val tempFile = File.createTempFile("export", ".md", globalClass.cleanOnExitDir.file)
-                    val success = instance.exportToMarkdown(tempFile)
-                    if (success) {
-                        globalClass.contentResolver.openOutputStream(uri)?.use { output ->
-                            tempFile.inputStream().use { input ->
-                                input.copyTo(output)
+                    val success = withContext(IO) {
+                        val tempFile = File.createTempFile("export", ".md", globalClass.cleanOnExitDir.file)
+                        val ok = instance.exportToMarkdown(tempFile)
+                        if (ok) {
+                            globalClass.contentResolver.openOutputStream(uri)?.use { output ->
+                                tempFile.inputStream().use { input -> input.copyTo(output) }
                             }
+                            tempFile.delete()
                         }
-                        tempFile.delete()
-                        Toast.makeText(context, globalClass.getString(R.string.saved_successfully), Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                        ok
                     }
+                    Toast.makeText(
+                        context,
+                        globalClass.getString(if (success) R.string.saved_successfully else R.string.failed_to_save_pdf),
+                        Toast.LENGTH_SHORT
+                    ).show()
                     isExporting = false
                 }
             } else {
@@ -109,19 +111,22 @@ fun PdfViewerContent(
         ) { uri: android.net.Uri? ->
             if (uri != null) {
                 coroutineScope.launch {
-                    val tempFile = File.createTempFile("export", ".odt", globalClass.cleanOnExitDir.file)
-                    val success = instance.exportToOdf(tempFile)
-                    if (success) {
-                        globalClass.contentResolver.openOutputStream(uri)?.use { output ->
-                            tempFile.inputStream().use { input ->
-                                input.copyTo(output)
+                    val success = withContext(IO) {
+                        val tempFile = File.createTempFile("export", ".odt", globalClass.cleanOnExitDir.file)
+                        val ok = instance.exportToOdf(tempFile)
+                        if (ok) {
+                            globalClass.contentResolver.openOutputStream(uri)?.use { output ->
+                                tempFile.inputStream().use { input -> input.copyTo(output) }
                             }
+                            tempFile.delete()
                         }
-                        tempFile.delete()
-                        Toast.makeText(context, globalClass.getString(R.string.saved_successfully), Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, globalClass.getString(R.string.failed_to_save_pdf), Toast.LENGTH_SHORT).show()
+                        ok
                     }
+                    Toast.makeText(
+                        context,
+                        globalClass.getString(if (success) R.string.saved_successfully else R.string.failed_to_save_pdf),
+                        Toast.LENGTH_SHORT
+                    ).show()
                     isExporting = false
                 }
             } else {
@@ -177,11 +182,8 @@ fun PdfViewerContent(
             }
         }
 
-        DisposableEffect(Unit) {
-            onDispose {
-                instance.onClose()
-            }
-        }
+        // The PDF instance is closed by ViewerActivity.onDestroy. Closing it on
+        // composable disposal used to break rotation with a dead renderer.
 
         if (showInfoDialog) {
             InfoDialog(
@@ -297,7 +299,9 @@ fun PdfViewerContent(
                         {
                             isExporting = true
                             coroutineScope.launch {
-                                val result = instance.savePdfAsToFolder(parentDir!!)
+                                val result = withContext(IO) {
+                                    instance.savePdfAsToFolder(parentDir!!)
+                                }
                                 if (result != null) {
                                     Toast.makeText(context, globalClass.getString(R.string.saved_successfully_with_name, result.name), Toast.LENGTH_SHORT).show()
                                 } else {
@@ -325,7 +329,9 @@ fun PdfViewerContent(
                                 ExportType.ODF -> instance::saveOdfToFolder
                             }
                             coroutineScope.launch {
-                                val result = saveAction(parentDir!!)
+                                val result = withContext(IO) {
+                                    saveAction(parentDir!!)
+                                }
                                 if (result != null) {
                                     Toast.makeText(context, globalClass.getString(R.string.saved_successfully_with_name, result.name), Toast.LENGTH_SHORT).show()
                                 } else {

@@ -13,13 +13,20 @@ import com.raival.compose.file.explorer.screen.main.tab.apps.holder.AppHolder
 import com.raival.compose.file.explorer.screen.main.tab.apps.provider.getInstalledApps
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class AppsTab : Tab() {
     override val id = globalClass.generateUid()
     override val header = globalClass.getString(R.string.apps_tab_header)
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val tabJob = SupervisorJob()
+    private val scope = CoroutineScope(Dispatchers.IO + tabJob)
+
+    override fun onTabRemoved() {
+        tabJob.cancel()
+    }
 
     val appsList = mutableStateListOf<AppHolder>()
     val systemApps = ArrayList<AppHolder>()

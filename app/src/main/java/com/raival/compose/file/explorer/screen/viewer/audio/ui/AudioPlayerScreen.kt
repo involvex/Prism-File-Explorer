@@ -56,7 +56,6 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -116,10 +115,8 @@ fun MusicPlayerScreen(
         audioPlayerInstance.initializePlayer(context, audioPlayerInstance.uri)
     }
 
-    // Dispose player when leaving
-    DisposableEffect(Unit) {
-        onDispose { audioPlayerInstance.onClose() }
-    }
+    // The player is owned by the Activity (ViewerActivity.onDestroy), not by
+    // composition. Disposing here would tear it down on every rotation.
 
     Surface(
         modifier = Modifier.fillMaxSize(),

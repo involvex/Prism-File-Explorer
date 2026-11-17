@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.ShareCompat
@@ -42,6 +43,8 @@ import com.raival.compose.file.explorer.screen.main.tab.files.task.CompressTask
 import com.reandroid.archive.ZipAlign
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -61,7 +64,8 @@ class FilesTab(
     }
 
     override val id = globalClass.generateUid()
-    val scope = CoroutineScope(Dispatchers.IO)
+    private val tabJob = SupervisorJob()
+    val scope = CoroutineScope(Dispatchers.IO + tabJob)
 
     val homeDir: ContentHolder =
         if (source is VirtualFileHolder || source.isFolder) source else runBlocking { source.getParent() }
@@ -76,8 +80,10 @@ class FilesTab(
         globalClass.preferencesManager.getViewConfigPrefsFor(activeFolder)
     )
 
-    val highlightedFiles = arrayListOf<String>()
-    val selectedFiles = linkedMapOf<String, ContentHolder>()
+    // Compose-observable so rows react directly to selection/highlight changes
+    // instead of relying on a full list reload to trigger recomposition.
+    val highlightedFiles = mutableStateListOf<String>()
+    val selectedFiles = mutableStateMapOf<String, ContentHolder>()
     var lastSelectedFileIndex = -1
 
     var currentPathSegments by mutableStateOf(listOf<ContentHolder>())
@@ -125,7 +131,7 @@ class FilesTab(
                 source.getParent()?.let { parent ->
                     openFolderImpl(parent) {
                         // Scroll to the file once the content has been loaded
-                        CoroutineScope(Dispatchers.Main).launch {
+                        globalClass.applicationMainScope.launch {
                             getFileListState().scrollToItem(
                                 maxOf(
                                     activeFolderContent.getIndexIf { uniquePath == source.uniquePath },
@@ -166,6 +172,8 @@ class FilesTab(
 
     override fun onTabRemoved() {
         disconnectRemoteConnections()
+        tabJob.cancel()
+        globalClass.searchManager.stopSearch()
     }
 
     override fun onTabStopped() {
@@ -640,7 +648,7 @@ class FilesTab(
                 }
 
                 reloadFiles {
-                    CoroutineScope(Dispatchers.Main).launch {
+                    globalClass.applicationMainScope.launch {
                         val newItemIndex =
                             activeFolderContent.getIndexIf { displayName == newFile.displayName }
                         if (newItemIndex > -1) {

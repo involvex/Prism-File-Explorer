@@ -2,6 +2,7 @@ package com.raival.compose.file.explorer.screen.viewer.image.ui
 
 import android.content.Intent
 import android.graphics.Bitmap
+import androidx.core.graphics.scale
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -89,6 +90,10 @@ import com.raival.compose.file.explorer.screen.viewer.ViewerActivity
 import com.raival.compose.file.explorer.screen.viewer.ViewerInstance
 import com.raival.compose.file.explorer.screen.viewer.image.misc.ImageInfo
 import com.raival.compose.file.explorer.screen.viewer.image.misc.ImageInfo.Companion.extractImageInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.max
+import kotlin.math.min
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,7 +109,7 @@ fun ImageViewerScreen(instance: ViewerInstance) {
         Color.Black
     )
     var currentImageBackgroundColorIndex by remember { mutableIntStateOf(0) }
-    var imageData by remember { mutableStateOf(ByteArray(0)) }
+    var imageDataAvailable by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var isError by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
@@ -118,7 +123,8 @@ fun ImageViewerScreen(instance: ViewerInstance) {
     // Load image data
     LaunchedEffect(instance.uri) {
         try {
-            imageData = instance.uri.read()
+            // Only keep a flag instead of the entire file ByteArray in Compose state.
+            imageDataAvailable = withContext(Dispatchers.IO) { instance.uri.read().isNotEmpty() }
             isLoading = false
         } catch (e: Exception) {
             logger.logError(e)
@@ -128,10 +134,11 @@ fun ImageViewerScreen(instance: ViewerInstance) {
     }
 
     // Extract image info when image is loaded
-    LaunchedEffect(imageData, imageDimensions.first) {
-        if (imageData.isNotEmpty() && imageDimensions.first.isNotEmpty()) {
-            imageInfo =
+    LaunchedEffect(imageDataAvailable, imageDimensions.first) {
+        if (imageDataAvailable && imageDimensions.first.isNotEmpty()) {
+            imageInfo = withContext(Dispatchers.IO) {
                 extractImageInfo(instance.uri, imageDimensions.first, imageDimensions.second)
+            }
         }
     }
 
@@ -186,12 +193,27 @@ fun ImageViewerScreen(instance: ViewerInstance) {
 
                 // Extract dominant color
                 LaunchedEffect(image) {
-                    if (image != null) {
-                        val bitmap = image!!.toBitmap().copy(Bitmap.Config.ARGB_8888, false)
-                        val palette = Palette.from(bitmap).generate()
-                        dominantColor = Color(palette.getDominantColor(defaultColor.toArgb()))
-                        secondaryColor = Color(palette.getMutedColor(defaultColor.toArgb()))
+                    val currentImage = image ?: return@LaunchedEffect
+                    // Full-size bitmaps plus Palette generation on Main caused jank/OOM
+                    // on large photos. Downsample to <=128px and run off Main.
+                    val colors = withContext(Dispatchers.Default) {
+                        val full = currentImage.toBitmap().copy(Bitmap.Config.ARGB_8888, false)
+                        val scale = min(1f, 128f / max(full.width, full.height))
+                        val small = if (scale < 1f) {
+                            full.scale(
+                                max(1, (full.width * scale).toInt()),
+                                max(1, (full.height * scale).toInt()),
+                                true
+                            )
+                        } else full
+                        val palette = Palette.from(small).generate()
+                        if (small !== full) small.recycle()
+                        full.recycle()
+                        palette.getDominantColor(defaultColor.toArgb()) to
+                                palette.getMutedColor(defaultColor.toArgb())
                     }
+                    dominantColor = Color(colors.first)
+                    secondaryColor = Color(colors.second)
                 }
 
                 // Animated gradient overlay for top bar

@@ -25,10 +25,12 @@ import com.raival.compose.file.explorer.screen.main.tab.files.provider.StoragePr
 import com.raival.compose.file.explorer.screen.main.tab.home.HomeTab
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStreamReader
 import java.net.ConnectException
@@ -39,7 +41,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 class MainActivityManager {
-    val managerScope = CoroutineScope(Dispatchers.IO)
+    val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val _state = MutableStateFlow(MainActivityState())
     val state = _state.asStateFlow()
 
@@ -347,7 +349,8 @@ class MainActivityManager {
                 )
             }
 
-            onFinish()
+            // onFinish calls Activity.finish() and must run on the main thread.
+            withContext(Dispatchers.Main) { onFinish() }
         }
     }
 
@@ -435,7 +438,7 @@ class MainActivityManager {
             val latestRelease = releases.firstOrNull { !it.prerelease }
             if (latestRelease == null) {
                 if (manual) showMsg(R.string.no_updates_available)
-                onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(false) } }
+                onDone?.let { managerScope.launch(Dispatchers.Main) { it(false) } }
                 return@fetchGithubReleases
             }
             val latestVersionName = latestRelease.tagName
@@ -453,13 +456,13 @@ class MainActivityManager {
                     newUpdate = latestRelease
                     _state.update { it.copy(hasNewUpdate = true) }
                     showMsg(R.string.new_update_available)
-                    onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(true) } }
+                    onDone?.let { managerScope.launch(Dispatchers.Main) { it(true) } }
                 } else {
                     if (manual) showMsg(R.string.no_updates_available)
-                    onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(false) } }
+                    onDone?.let { managerScope.launch(Dispatchers.Main) { it(false) } }
                 }
             } catch (_: Exception) {
-                onDone?.let { CoroutineScope(Dispatchers.Main).launch { it(false) } }
+                onDone?.let { managerScope.launch(Dispatchers.Main) { it(false) } }
             }
         }
     }
@@ -492,7 +495,7 @@ class MainActivityManager {
     fun fetchGithubReleases(
         onResult: (List<GithubRelease>) -> Unit
     ) {
-        CoroutineScope(Dispatchers.IO).launch {
+        managerScope.launch {
             val url = "https://api.github.com/repos/involvex/Prism-File-Explorer/releases"
             var releases = emptyList<GithubRelease>()
 
@@ -524,7 +527,7 @@ class MainActivityManager {
                 logger.logError(e.printFullStackTrace())
             }
 
-            onResult(releases)
+            withContext(Dispatchers.Main) { onResult(releases) }
         }
     }
 

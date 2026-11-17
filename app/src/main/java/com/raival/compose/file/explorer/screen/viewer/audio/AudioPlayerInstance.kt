@@ -22,7 +22,10 @@ import com.raival.compose.file.explorer.screen.viewer.audio.ui.extractColorsFrom
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,9 +54,13 @@ class AudioPlayerInstance(
 
     private var exoPlayer: ExoPlayer? = null
     private var positionTrackingJob: Job? = null
+    private val instanceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     @OptIn(UnstableApi::class)
     suspend fun initializePlayer(context: Context, uri: Uri) {
+        // Recomposition on rotation re-executes the caller; never build a second
+        // player while one is already owned by this instance.
+        if (exoPlayer != null) return
         withContext(Dispatchers.Main) {
             exoPlayer = ExoPlayer.Builder(context).build().apply {
                 val mediaItem = MediaItem.Builder()
@@ -148,8 +155,8 @@ class AudioPlayerInstance(
 
     private fun startPositionTracking() {
         positionTrackingJob?.cancel()
-        positionTrackingJob = CoroutineScope(Dispatchers.Main).launch {
-            while (true) {
+        positionTrackingJob = instanceScope.launch {
+            while (isActive) {
                 exoPlayer?.let { player ->
                     _playerState.update {
                         it.copy(
@@ -213,7 +220,8 @@ class AudioPlayerInstance(
     }
 
     override fun onClose() {
-        positionTrackingJob?.cancel()
+        instanceScope.cancel()
+        positionTrackingJob = null
         exoPlayer?.release()
         exoPlayer = null
     }

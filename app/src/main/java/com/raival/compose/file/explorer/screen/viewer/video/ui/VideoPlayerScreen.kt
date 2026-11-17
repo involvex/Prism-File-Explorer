@@ -38,7 +38,6 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -76,11 +75,8 @@ fun VideoPlayerScreen(
         videoPlayerInstance.initializePlayer(context, videoUri)
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            videoPlayerInstance.onClose()
-        }
-    }
+    // Player ownership stays with ViewerActivity.onDestroy so rotation keeps
+    // the same instance and player alive.
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = colorScheme.background

@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 import org.eclipse.tm4e.core.registry.IThemeSource
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.exitProcess
 
@@ -61,7 +62,9 @@ class App : Application(), coil3.SingletonImageLoader.Factory {
             get() = globalClass.logger
     }
 
-    private val applicationScope = CoroutineScope(SupervisorJob() + IO)
+    val applicationScope = CoroutineScope(SupervisorJob() + IO)
+    val applicationMainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val textMateSetupStarted = AtomicBoolean(false)
 
     lateinit var logger: FileExplorerLogger
         private set
@@ -106,10 +109,11 @@ class App : Application(), coil3.SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
 
+        // Must be set before anything else can reach the global singleton,
+        // including the uncaught exception handler installed below.
+        appContext = this
         logger = FileExplorerLogger(this, applicationScope)
         setupGlobalExceptionHandler()
-
-        appContext = this
 
         cleanOnExitDir()
 
@@ -127,14 +131,32 @@ class App : Application(), coil3.SingletonImageLoader.Factory {
     private fun setupGlobalExceptionHandler() {
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
-            logger.logError(exception)
+            // FileExplorerLogger persists through a coroutine, which never gets the
+            // chance to run once the process is killed. Write a synchronous plain
+            // file first so crash diagnostics actually survive.
+            runCatching {
+                val crashDir = File(filesDir, "crash")
+                crashDir.mkdirs()
+                File(crashDir, "last-crash.txt").writeText(
+                    buildString {
+                        appendLine("Thread: ${thread.name}")
+                        appendLine("Time: ${System.currentTimeMillis()}")
+                        appendLine(exception.stackTraceToString())
+                    }
+                )
+            }
             defaultHandler?.uncaughtException(thread, exception)
-            Process.killProcess(Process.myPid())
-            exitProcess(2)
+                ?: run {
+                    Process.killProcess(Process.myPid())
+                    exitProcess(2)
+                }
         }
     }
 
     private fun setupTextMate() {
+        // Both textEditorManager and viewersManager request this; the registries
+        // are global and must only be populated once.
+        if (!textMateSetupStarted.compareAndSet(false, true)) return
         applicationScope.launch {
             FileProviderRegistry.getInstance().addFileProvider(
                 AssetsFileResolver(
@@ -177,7 +199,7 @@ class App : Application(), coil3.SingletonImageLoader.Factory {
     }
 
     fun showMsg(msg: String) {
-        CoroutineScope(Dispatchers.Main).launch {
+        applicationMainScope.launch {
             Toast.makeText(this@App, msg, Toast.LENGTH_SHORT).show()
         }
     }

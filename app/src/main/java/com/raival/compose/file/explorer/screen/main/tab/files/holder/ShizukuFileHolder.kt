@@ -6,6 +6,7 @@ import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.R
 import com.raival.compose.file.explorer.common.emptyString
 import com.raival.compose.file.explorer.common.toFormattedSize
+import com.raival.compose.file.explorer.shellQuote
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.ContentCount
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.anyFileType
@@ -25,14 +26,14 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
 
     override val lastModified: Long by lazy {
         try {
-            shizukuManager.runShellCommand("stat -c %Y '$path' 2>/dev/null")?.trim()?.toLongOrNull() ?: 0L
+            shizukuManager.runShellCommand("stat -c %Y ${path.shellQuote()} 2>/dev/null")?.trim()?.toLongOrNull() ?: 0L
         } catch (_: Exception) { 0L }
     }
 
     override val size: Long by lazy {
         try {
             if (isFolder) 0L
-            else shizukuManager.runShellCommand("stat -c %s '$path' 2>/dev/null")?.trim()?.toLongOrNull() ?: 0L
+            else shizukuManager.runShellCommand("stat -c %s ${path.shellQuote()} 2>/dev/null")?.trim()?.toLongOrNull() ?: 0L
         } catch (_: Exception) { 0L }
     }
 
@@ -52,7 +53,7 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
             if (!shizukuManager.isAccessible()) return@withContext arrayListOf()
             val result = arrayListOf<ShizukuFileHolder>()
             try {
-                val output = shizukuManager.runShellCommand("ls -1 '$path' 2>/dev/null") ?: return@withContext result
+                val output = shizukuManager.runShellCommand("ls -1 ${path.shellQuote()} 2>/dev/null") ?: return@withContext result
                 output.lines().filter { it.isNotBlank() }.forEach { name ->
                     val childPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
                     result.add(ShizukuFileHolder(childPath))
@@ -73,7 +74,7 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
         var folders = 0
         var files = 0
         try {
-            val output = shizukuManager.runShellCommand("ls -1F '$path' 2>/dev/null") ?: return ContentCount(0, 0)
+            val output = shizukuManager.runShellCommand("ls -1F ${path.shellQuote()} 2>/dev/null") ?: return ContentCount(0, 0)
             output.lines().filter { it.isNotBlank() }.forEach { name ->
                 if (name.endsWith("/")) folders++ else files++
             }
@@ -84,13 +85,13 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
     override suspend fun findFile(name: String): ShizukuFileHolder? {
         if (!shizukuManager.isAccessible()) return null
         val childPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
-        val exists = shizukuManager.runShellCommand("test -e '$childPath' && echo 'yes'")?.trim() == "yes"
+        val exists = shizukuManager.runShellCommand("test -e ${childPath.shellQuote()} && echo 'yes'")?.trim() == "yes"
         return if (exists) ShizukuFileHolder(childPath) else null
     }
 
     override suspend fun isValid(): Boolean =
         shizukuManager.isAccessible() &&
-            (shizukuManager.runShellCommand("test -e '$path' && echo 'yes'")?.trim() == "yes")
+            (shizukuManager.runShellCommand("test -e ${path.shellQuote()} && echo 'yes'")?.trim() == "yes")
 
     override suspend fun getDetails(): String {
         val separator = " | "
@@ -157,8 +158,8 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
             return
         }
         val newPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
-        val result = shizukuManager.runShellCommand("touch '$newPath' 2>&1")
-        if (result != null && !result.contains("error") && !result.contains("denied")) {
+        val result = shizukuManager.runShellCommandResult("touch ${newPath.shellQuote()} 2>&1")
+        if (result?.isSuccess == true) {
             onCreated(ShizukuFileHolder(newPath))
         } else {
             onCreated(null)
@@ -171,8 +172,8 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
             return
         }
         val newPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
-        val result = shizukuManager.runShellCommand("mkdir -p '$newPath' 2>&1")
-        if (result != null && !result.contains("error") && !result.contains("denied")) {
+        val result = shizukuManager.runShellCommandResult("mkdir -p ${newPath.shellQuote()} 2>&1")
+        if (result?.isSuccess == true) {
             onCreated(ShizukuFileHolder(newPath))
         } else {
             onCreated(null)
@@ -183,9 +184,9 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
         if (!shizukuManager.isAccessible()) return false
         return withContext(Dispatchers.IO) {
             try {
-                val cmd = if (isFolder) "rm -rf '$path'" else "rm -f '$path'"
-                val result = shizukuManager.runShellCommand("$cmd 2>&1")
-                result == null || !result.contains("denied")
+                val quoted = path.shellQuote()
+                val cmd = if (isFolder) "rm -rf $quoted" else "rm -f $quoted"
+                shizukuManager.runShellCommandResult("$cmd 2>&1")?.isSuccess == true
             } catch (_: Exception) { false }
         }
     }
@@ -199,9 +200,10 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
                 } else {
                     "${dest.path}/$displayName"
                 }
-                val cmd = if (isFolder) "cp -r '$path' '$destPath'" else "cp '$path' '$destPath'"
-                val result = shizukuManager.runShellCommand("$cmd 2>&1")
-                result == null || !result.contains("denied")
+                val quotedSource = path.shellQuote()
+                val quotedDest = destPath.shellQuote()
+                val cmd = if (isFolder) "cp -r $quotedSource $quotedDest" else "cp $quotedSource $quotedDest"
+                shizukuManager.runShellCommandResult("$cmd 2>&1")?.isSuccess == true
             } catch (_: Exception) { false }
         }
     }
@@ -215,8 +217,7 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
                 } else {
                     "${dest.path}/$displayName"
                 }
-                val result = shizukuManager.runShellCommand("mv '$path' '$destPath' 2>&1")
-                result == null || !result.contains("denied")
+                shizukuManager.runShellCommandResult("mv ${path.shellQuote()} ${destPath.shellQuote()} 2>&1")?.isSuccess == true
             } catch (_: Exception) { false }
         }
     }
@@ -227,8 +228,7 @@ class ShizukuFileHolder(val path: String) : ContentHolder() {
             try {
                 val parentPath = path.trimEnd('/').substringBeforeLast('/')
                 val newPath = "$parentPath/$newName"
-                val result = shizukuManager.runShellCommand("mv '$path' '$newPath' 2>&1")
-                result == null || !result.contains("denied")
+                shizukuManager.runShellCommandResult("mv ${path.shellQuote()} ${newPath.shellQuote()} 2>&1")?.isSuccess == true
             } catch (_: Exception) { false }
         }
     }

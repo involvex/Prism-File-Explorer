@@ -64,6 +64,8 @@ import com.raival.compose.file.explorer.screen.main.tab.files.task.CompressTask
 import com.raival.compose.file.explorer.screen.main.tab.files.task.CopyTask
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.FileIcon
 import com.raival.compose.file.explorer.screen.main.tab.files.ui.ItemRow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun FileOptionsMenuDialog(
@@ -78,7 +80,8 @@ fun FileOptionsMenuDialog(
             mutableStateOf(tab.selectedFiles.map { it.value }.toList())
         }
 
-        val targetContentHolder = tab.targetFile!!
+        // targetFile may be cleared from another dialog/frame while this is open.
+        val targetContentHolder = tab.targetFile ?: return
 
         val selectedFilesCount = targetFiles.size
         val isMultipleSelection = selectedFilesCount > 1
@@ -104,8 +107,13 @@ fun FileOptionsMenuDialog(
                 )
             }
 
-            LaunchedEffect(Unit) {
-                if (details.isEmpty()) details = targetContentHolder.getDetails()
+            LaunchedEffect(targetContentHolder.uniquePath) {
+                if (details.isEmpty()) {
+                    // getDetails() can call listFiles()/stat remote content.
+                    details = withContext(Dispatchers.IO) {
+                        targetContentHolder.getDetails()
+                    }
+                }
             }
 
             ItemRow(

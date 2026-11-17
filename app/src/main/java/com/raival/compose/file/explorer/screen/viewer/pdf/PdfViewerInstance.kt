@@ -37,9 +37,12 @@ import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -48,27 +51,19 @@ class PdfViewerInstance(
     override val uri: Uri,
     override val id: String
 ) : ViewerInstance {
-    private val fileDescriptor = try {
-        globalClass.contentResolver.openFileDescriptor(uri, "r")
-    } catch (e: Exception) {
-        logger.logError(e)
-        null
-    }
-
-    private val pdfRenderer = fileDescriptor?.let {
-        try {
-            PdfRenderer(it)
-        } catch (e: Exception) {
-            logger.logError(e)
-            null
-        }
-    }
+    // Opened lazily in prepare(), which runs on Dispatchers.IO from the UI.
+    // Constructing a PdfRenderer / loading a PDDocument in the constructor used
+    // to happen on the main thread when the Activity created this instance.
+    private var fileDescriptor: android.os.ParcelFileDescriptor? = null
+    private var pdfRenderer: PdfRenderer? = null
 
     val pages = arrayListOf<PdfPageHolder>()
     var defaultPageSize = Size(0, 0)
         private set
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    // Saves must finish even if the viewer is closed mid-write.
+    private val saveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
 
     private var pdDocument: PDDocument? = null
@@ -94,22 +89,6 @@ class PdfViewerInstance(
     private var isReady = false
 
     private var originalFile: File? = null
-
-    init {
-        try {
-            val inputStream = openInputStream(uri)
-            if (inputStream != null) {
-                pdDocument = PDDocument.load(inputStream)
-                pdDocument?.let { doc ->
-                    val catalog = doc.documentCatalog
-                    acroForm = catalog?.acroForm
-                    hasFormFields = acroForm != null && acroForm?.fields?.isNotEmpty() == true
-                }
-            }
-        } catch (e: Exception) {
-            logger.logError(e)
-        }
-    }
 
     private fun openInputStream(uri: Uri): InputStream? {
         return try {
@@ -155,20 +134,52 @@ class PdfViewerInstance(
 
     fun prepare(onPrepared: (success: Boolean) -> Unit) {
         try {
+            if (pdfRenderer == null) {
+                fileDescriptor = try {
+                    globalClass.contentResolver.openFileDescriptor(uri, "r")
+                } catch (e: Exception) {
+                    logger.logError(e)
+                    null
+                }
+                pdfRenderer = fileDescriptor?.let {
+                    try {
+                        PdfRenderer(it)
+                    } catch (e: Exception) {
+                        logger.logError(e)
+                        null
+                    }
+                }
+            }
+
             if (!isValid()) {
                 onPrepared(false)
                 return
             }
 
+            if (pdDocument == null) {
+                openInputStream(uri)?.use { inputStream ->
+                    pdDocument = PDDocument.load(inputStream)
+                    pdDocument?.let { doc ->
+                        val catalog = doc.documentCatalog
+                        acroForm = catalog?.acroForm
+                        hasFormFields = acroForm != null && acroForm?.fields?.isNotEmpty() == true
+                    }
+                }
+            }
+
+            val renderer = pdfRenderer ?: run {
+                onPrepared(false)
+                return
+            }
             if (!isReady) {
                 pages.clear()
 
-                for (i in 0 until pdfRenderer!!.pageCount) {
+                for (i in 0 until renderer.pageCount) {
                     pages.add(PdfPageHolder(index = i))
                 }
 
                 val samplePageIndex = if (pages.size == 1) 0 else minOf(1, pages.size - 1)
-                pdfRenderer.openPage(samplePageIndex).use { page ->
+                renderer.openPage(samplePageIndex).use { page ->
                     defaultPageSize = Size(page.width, page.height)
                 }
 
@@ -193,8 +204,8 @@ class PdfViewerInstance(
     )
 
     fun renderPage(page: PdfPageHolder, scale: Float = 2f, onFinished: (PdfPageHolder) -> Unit) {
-        if (pdfRenderer != null) {
-            page.render(scale, scope, mutex, pdfRenderer, onFinished = { onFinished(page) })
+        pdfRenderer?.let { renderer ->
+            page.render(scale, scope, mutex, renderer, onFinished = { onFinished(page) })
         }
     }
 
@@ -377,49 +388,59 @@ class PdfViewerInstance(
     }
 
     fun savePdf(onResult: (success: Boolean, message: String?) -> Unit) {
-        runBlocking(scope.coroutineContext) {
+        // Non-blocking, and not cancelled by onClose: an interrupted save could
+        // leave a truncated original file.
+        saveScope.launch {
+            val file = getOriginalFile()
+            if (file == null) {
+                onResult(false, globalClass.getString(R.string.failed_to_save_pdf))
+                return@launch
+            }
+
+            val tempFile = File(file.parentFile, "${file.nameWithoutExtension}_filled_${System.currentTimeMillis()}.pdf")
             try {
-                val file = getOriginalFile()
-                if (file == null) {
-                    onResult(false, globalClass.getString(R.string.failed_to_save_pdf))
-                    return@runBlocking
-                }
+                FileOutputStream(tempFile).use { pdDocument?.save(it) }
 
-                val tempFile = File(file.parentFile, "${file.nameWithoutExtension}_filled.pdf")
-                val outputStream = FileOutputStream(tempFile)
-                pdDocument?.save(outputStream)
-                outputStream.close()
-
-                val resolver = globalClass.contentResolver
                 when (uri.scheme) {
                     ContentResolver.SCHEME_FILE -> {
-                        if (file.canWrite()) {
-                            tempFile.copyTo(file, overwrite = true)
-                        } else {
+                        if (!file.canWrite()) {
                             onResult(false, globalClass.getString(R.string.permission_denied))
-                            return@runBlocking
+                            return@launch
+                        }
+                        // Atomic replace so readers never observe a partially written PDF.
+                        try {
+                            Files.move(
+                                tempFile.toPath(),
+                                file.toPath(),
+                                StandardCopyOption.REPLACE_EXISTING,
+                                StandardCopyOption.ATOMIC_MOVE
+                            )
+                        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                            tempFile.copyTo(file, overwrite = true)
                         }
                     }
                     ContentResolver.SCHEME_CONTENT -> {
-                        resolver.openOutputStream(uri)?.use { output ->
-                            tempFile.inputStream().use { input ->
-                                input.copyTo(output)
+                        val output = globalClass.contentResolver.openOutputStream(uri)
+                            ?: run {
+                                onResult(false, globalClass.getString(R.string.failed_to_save_pdf))
+                                return@launch
                             }
-                        }
+                        output.use { out -> tempFile.inputStream().use { it.copyTo(out) } }
                     }
                     else -> {
                         onResult(false, globalClass.getString(R.string.unsupported_scheme))
-                        return@runBlocking
+                        return@launch
                     }
                 }
 
-                tempFile.delete()
                 hasUnsavedFormChanges = false
                 modifiedFieldValues.clear()
                 onResult(true, null)
             } catch (e: Exception) {
                 logger.logError(e)
                 onResult(false, globalClass.getString(R.string.failed_to_save_pdf))
+            } finally {
+                tempFile.delete()
             }
         }
     }
@@ -567,16 +588,21 @@ class PdfViewerInstance(
     }
 
     override fun onClose() {
-        runBlocking {
-            try {
-                scope.cancel()
-                pages.forEach { it.recycle() }
-                pdfRenderer?.close()
-                fileDescriptor?.close()
-                pdDocument?.close()
-            } catch (e: Exception) {
-                logger.logError(e)
-            }
+        // All of these are synchronous close calls; no runBlocking needed.
+        try {
+            scope.cancel()
+            pages.forEach { it.recycle() }
+            pdfRenderer?.close()
+            pdfRenderer = null
+            fileDescriptor?.close()
+            fileDescriptor = null
+            pdDocument?.close()
+            pdDocument = null
+            // Allow prepare() to fully reinitialize if this instance is reused
+            // after a configuration change.
+            isReady = false
+        } catch (e: Exception) {
+            logger.logError(e)
         }
     }
 }

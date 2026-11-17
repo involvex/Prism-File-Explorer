@@ -34,7 +34,7 @@ class ApkFileDecoder(
             options: Options,
             imageLoader: ImageLoader
         ): Decoder? {
-            val file = result.source.file().toFile()
+            val file = runCatching { result.source.file().toFile() }.getOrNull() ?: return null
             if (file.exists() && file.extension.lowercase() == apkFileType) {
                 return ApkFileDecoder(file)
             }

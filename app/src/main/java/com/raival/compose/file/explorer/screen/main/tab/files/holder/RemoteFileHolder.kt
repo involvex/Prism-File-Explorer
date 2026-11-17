@@ -144,7 +144,7 @@ abstract class RemoteFileHolder : ContentHolder() {
         skipSupportedExtensions: Boolean,
         customMimeType: String?
     ) {
-        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        globalClass.applicationScope.launch {
             downloadAndOpen(context, skipSupportedExtensions, customMimeType)
         }
     }

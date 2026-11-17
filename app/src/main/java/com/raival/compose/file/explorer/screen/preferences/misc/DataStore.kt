@@ -28,6 +28,8 @@ data class PreferenceItem(
 )
 
 suspend fun exportPreferences(): String {
+    // Make sure queued async writes are on disk before reading everything back.
+    PrefSnapshot.flush()
     val preferences = globalClass.prefDataStore.data
         .catch { exception ->
             if (exception is IOException) {
@@ -60,6 +62,7 @@ suspend fun exportPreferences(): String {
 }
 
 suspend fun importPreferences(jsonData: String) {
+    PrefSnapshot.flush()
     val gson = Gson()
     val type = object : TypeToken<List<PreferenceItem>>() {}.type
     val importData: List<PreferenceItem> = gson.fromJson(jsonData, type)
@@ -81,4 +84,5 @@ suspend fun importPreferences(jsonData: String) {
             }
         }
     }
+    PrefSnapshot.invalidate()
 }

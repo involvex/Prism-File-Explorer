@@ -86,6 +86,10 @@ fun PdfPageItem(
             }
         }
         onDispose {
+            // Drop the local reference BEFORE recycling: keeping a recycled
+            // Bitmap in state makes scroll-back render a recycled canvas.
+            bitmap = null
+            isLoading = false
             instance.recycle(page)
         }
     }
@@ -107,7 +111,7 @@ fun PdfPageItem(
             contentAlignment = Alignment.Center
         ) {
             when {
-                bitmap isNot null -> {
+                bitmap isNot null && bitmap?.isRecycled == false -> {
                     AsyncImage(
                         modifier = Modifier.fillMaxSize(),
                         model = bitmap!!,

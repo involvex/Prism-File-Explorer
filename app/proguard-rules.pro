@@ -70,3 +70,26 @@
 -keep class org.apache.commons.compress.** { *; }
 -dontwarn org.apache.commons.compress.**
 -dontwarn org.tukaani.**
+
+# Optional desktop/JDK APIs referenced by mbassy, BouncyCastle and EdDSA but not
+# present on Android. These code paths are unreachable at runtime; without these
+# rules R8 fails release builds with "Missing classes detected".
+-dontwarn javax.el.BeanELResolver
+-dontwarn javax.el.ELContext
+-dontwarn javax.el.ELResolver
+-dontwarn javax.el.ExpressionFactory
+-dontwarn javax.el.FunctionMapper
+-dontwarn javax.el.ValueExpression
+-dontwarn javax.el.VariableMapper
+-dontwarn javax.naming.Binding
+-dontwarn javax.naming.NamingEnumeration
+-dontwarn javax.naming.NamingException
+-dontwarn javax.naming.directory.Attribute
+-dontwarn javax.naming.directory.Attributes
+-dontwarn javax.naming.directory.DirContext
+-dontwarn javax.naming.directory.InitialDirContext
+-dontwarn javax.naming.directory.SearchControls
+-dontwarn javax.naming.directory.SearchResult
+-dontwarn org.bouncycastle.pqc.jcajce.interfaces.KyberPublicKey
+-dontwarn org.bouncycastle.pqc.jcajce.spec.KyberParameterSpec
+-dontwarn sun.security.x509.X509Key

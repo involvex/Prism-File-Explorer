@@ -41,7 +41,13 @@ class FileExplorerLogger(
 
     private val gson = Gson()
     private val logListType = object : TypeToken<List<LogHolder>>() {}.type
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    // Logging can happen from any thread; SimpleDateFormat is not thread-safe.
+    private val dateFormat = object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue(): SimpleDateFormat =
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    }
+
+    private fun timestamp(date: Date = Date()): String = dateFormat.get()!!.format(date)
 
     // ERROR LOGGING FUNCTIONS
     /**
@@ -50,7 +56,7 @@ class FileExplorerLogger(
     fun logError(message: String) {
         val errorLog = LogHolder(
             message = message,
-            timestamp = dateFormat.format(Date())
+            timestamp = timestamp()
         )
         scope.launch {
             saveError(errorLog)
@@ -63,7 +69,7 @@ class FileExplorerLogger(
     fun logError(exception: Throwable) {
         val errorLog = LogHolder(
             message = exception.stackTraceToString(),
-            timestamp = dateFormat.format(Date())
+            timestamp = timestamp()
         )
         scope.launch {
             saveError(errorLog)
@@ -128,7 +134,7 @@ class FileExplorerLogger(
     fun logWarning(message: String) {
         val warningLog = LogHolder(
             message = message,
-            timestamp = dateFormat.format(Date())
+            timestamp = timestamp()
         )
         scope.launch {
             saveWarning(warningLog)
@@ -141,7 +147,7 @@ class FileExplorerLogger(
     fun logWarning(exception: Throwable) {
         val warningLog = LogHolder(
             message = exception.printFullStackTrace(),
-            timestamp = dateFormat.format(Date())
+            timestamp = timestamp()
         )
         scope.launch {
             saveWarning(warningLog)
@@ -207,7 +213,7 @@ class FileExplorerLogger(
     fun logInfo(message: String) {
         val infoLog = LogHolder(
             message = message,
-            timestamp = dateFormat.format(Date())
+            timestamp = timestamp()
         )
         scope.launch {
             saveInfo(infoLog)

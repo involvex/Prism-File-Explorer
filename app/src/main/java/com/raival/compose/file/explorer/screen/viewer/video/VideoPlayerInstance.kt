@@ -15,7 +15,10 @@ import com.raival.compose.file.explorer.screen.viewer.video.model.VideoPlayerSta
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,8 +34,10 @@ class VideoPlayerInstance(
     val playerState: StateFlow<VideoPlayerState> = _playerState.asStateFlow()
     private var exoPlayer: ExoPlayer? = null
     private var positionTrackingJob: Job? = null
+    private val instanceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     suspend fun initializePlayer(context: Context, uri: Uri) {
+        if (exoPlayer != null) return
         _playerState.update {
             it.copy(
                 isLoading = true,
@@ -87,8 +92,8 @@ class VideoPlayerInstance(
 
     private fun startPositionTracking() {
         positionTrackingJob?.cancel()
-        positionTrackingJob = CoroutineScope(Dispatchers.Main).launch {
-            while (true) {
+        positionTrackingJob = instanceScope.launch {
+            while (isActive) {
                 exoPlayer?.let { player ->
                     _playerState.update { currentState ->
                         currentState.copy(
@@ -148,7 +153,8 @@ class VideoPlayerInstance(
     fun getPlayer() = exoPlayer
 
     override fun onClose() {
-        positionTrackingJob?.cancel()
+        instanceScope.cancel()
+        positionTrackingJob = null
         exoPlayer?.release()
         exoPlayer = null
     }

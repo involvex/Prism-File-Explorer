@@ -42,13 +42,14 @@ abstract class ViewerActivity : BaseActivity() {
             uid = String.randomString(12)
         }
 
-        val instance = globalClass.viewersManager.instances.find { it.id == uid }
-
-        if (instance == null) {
-            globalClass.viewersManager.instances.add(
-                onCreateNewInstance(uri!!, uid).also { currentInstance = it }
-            )
-        }
+        // On configuration change the instance already exists in ViewersManager.
+        // Assign it to currentInstance in BOTH branches - otherwise onPermissionGranted()
+        // would dereference a null currentInstance after a rotation, and onDestroy()
+        // would never release the restored instance.
+        currentInstance = globalClass.viewersManager.instances.find { it.id == uid }
+            ?: onCreateNewInstance(uri!!, uid).also {
+                globalClass.viewersManager.instances.add(it)
+            }
 
         checkPermissions()
     }
@@ -60,8 +61,31 @@ abstract class ViewerActivity : BaseActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        currentInstance?.onClose()
-        globalClass.viewersManager.instances.remove(currentInstance)
+        // A configuration change calls onDestroy on the old Activity while the
+        // new one reuses the same instance from ViewersManager. Only release on
+        // a real finish (back / task removed).
+        if (!isChangingConfigurations) {
+            currentInstance?.onClose()
+            globalClass.viewersManager.instances.remove(currentInstance)
+        }
+    }
+
+    /**
+     * Replace the instance after an asynchronous preparation step (e.g. Office
+     * to PDF conversion). Keeps [currentInstance] and ViewersManager in sync so
+     * onDestroy still disposes exactly one owner.
+     */
+    protected fun replaceInstance(newInstance: ViewerInstance) {
+        currentInstance?.let { old ->
+            if (old !== newInstance) {
+                globalClass.viewersManager.instances.remove(old)
+                old.onClose()
+            }
+        }
+        currentInstance = newInstance
+        if (globalClass.viewersManager.instances.none { it.id == newInstance.id }) {
+            globalClass.viewersManager.instances.add(newInstance)
+        }
     }
 
     override fun onPermissionGranted() {

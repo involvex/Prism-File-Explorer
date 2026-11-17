@@ -55,6 +55,27 @@ class BaselineProfileGenerator {
             pressHome()
             startActivityAndWait()
 
+            // Critical journey: open the files tab (if not already there) and
+            // fling the file list so startup + scroll code paths are profiled.
+            device.waitForIdle()
+            val filesTab = device.findObject(
+                androidx.test.uiautomator.By.text("Files")
+            )
+            if (filesTab != null) {
+                filesTab.click()
+                device.waitForIdle()
+            }
+            repeat(3) {
+                device.swipe(
+                    device.displayWidth / 2,
+                    (device.displayHeight * 0.75).toInt(),
+                    device.displayWidth / 2,
+                    (device.displayHeight * 0.25).toInt(),
+                    12
+                )
+                device.waitForIdle()
+            }
+
             // Write more interactions to optimize advanced journeys of your app.
             // For example:
             // 1. Wait until the content is asynchronously loaded

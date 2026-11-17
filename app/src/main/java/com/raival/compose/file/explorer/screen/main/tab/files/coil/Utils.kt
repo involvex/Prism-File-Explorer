@@ -8,8 +8,8 @@ import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.videoFileType
 
 fun canUseCoil(contentHolder: ContentHolder): Boolean {
-    return (contentHolder.isFile()
-            && imageFileType.contains(contentHolder.extension)
+    return contentHolder.isFile()
+            && (imageFileType.contains(contentHolder.extension)
             || videoFileType.contains(contentHolder.extension)
             || audioFileType.contains(contentHolder.extension)
             || contentHolder.extension == apkFileType

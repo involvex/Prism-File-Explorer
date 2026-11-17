@@ -260,9 +260,12 @@ fun <T> List<T>.getIndexIf(condition: T.() -> Boolean): Int {
     return -1
 }
 
-fun <A, B> HashMap<A, B>.removeIf(condition: (A, B) -> Boolean) {
-    keys.forEach {
-        if (condition(it, this[it]!!)) {
+fun <A, B> MutableMap<A, B>.removeIf(condition: (A, B) -> Boolean) {
+    // Snapshot a copy of the keys: removing while iterating the live key set of
+    // a SnapshotStateMap is not safe.
+    keys.toList().forEach {
+        val value = this[it] ?: return@forEach
+        if (condition(it, value)) {
             remove(it)
         }
     }
