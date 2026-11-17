@@ -99,7 +99,7 @@
 | **Obtainium**       | [![Obtainium](https://img.shields.io/badge/Obtainium-Download-blue?style=for-the-badge)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.raival.compose.file.explorer%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Finvolvex%2FPrism-File-Explorer%22%2C%22author%22%3A%22involvex%22%2C%22name%22%3A%22File%20Explorer%20Compose%22%7D) |
 | **OpenApk**         | [![OpenApk](https://img.shields.io/badge/OpenApk-Download-purple?style=for-the-badge)](https://www.openapk.net/file-explorer/com.raival.compose.file.explorer/)                                                                                                                                                                                                             |
 
-> **Latest release: [v1.4.0](https://github.com/involvex/Prism-File-Explorer/releases/tag/v1.4.0)** — debug APK (unsigned, side-by-side with Play builds).
+> **Latest release: [v1.4.1](https://github.com/involvex/Prism-File-Explorer/releases/tag/v1.4.1)** — debug APK (unsigned, side-by-side with Play builds).
 
 ### 📋 System Requirements
 

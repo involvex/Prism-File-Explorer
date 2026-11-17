@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Eclipse Temurin JDK 21.0.6
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21.0.6'
           distribution: 'temurin'
