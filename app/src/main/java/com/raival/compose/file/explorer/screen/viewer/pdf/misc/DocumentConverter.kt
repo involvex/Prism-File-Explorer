@@ -1,6 +1,7 @@
 package com.raival.compose.file.explorer.screen.viewer.pdf.misc
 
 import android.net.Uri
+import android.provider.OpenableColumns
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.App.Companion.logger
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -25,9 +26,16 @@ import java.util.zip.ZipFile
 class DocumentConverter {
     companion object {
         private const val MAX_DOC_SIZE_BYTES = 50L * 1024 * 1024  // 50 MB
+        private const val MAX_CHARS_PER_LINE = 95
+        private val WIN_ANSI_SAFE = Regex("[\\x09\\x20-\\x7E\\xA0-\\xFF]")
     }
 
-    fun convertOfficeToPdf(uri: Uri, output: File): Boolean {
+    fun convertOfficeToPdf(
+        uri: Uri,
+        output: File,
+        hintExtension: String? = null,
+        hintMimeType: String? = null
+    ): Boolean {
         return try {
             val assetFile = globalClass.contentResolver.openFileDescriptor(uri, "r") ?: return false
             val fileSize = assetFile.statSize
@@ -37,8 +45,9 @@ class DocumentConverter {
                 return false
             }
             assetFile.close()
-            val content = globalClass.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return false
-            val ext = File(uri.path ?: "").extension.lowercase()
+            val content = globalClass.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return false
+            val ext = resolveDocumentExtension(uri, hintExtension, hintMimeType) ?: return false
             val text = when (ext) {
                 "docx" -> extractDocx(content)
                 "doc" -> extractDoc(content)
@@ -59,6 +68,83 @@ class DocumentConverter {
         } catch (e: Exception) {
             logger.logError(e)
             false
+        }
+    }
+
+    /**
+     * Resolve Office/ODF extension from display name, URI path, MIME type, or caller hint.
+     */
+    fun resolveDocumentExtension(
+        uri: Uri,
+        hintExtension: String? = null,
+        hintMimeType: String? = null
+    ): String? {
+        hintExtension
+            ?.lowercase()
+            ?.removePrefix(".")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return normalizeOfficeExtension(it) }
+
+        queryDisplayName(uri)
+            ?.substringAfterLast('.', missingDelimiterValue = "")
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return normalizeOfficeExtension(it) }
+
+        uri.lastPathSegment
+            ?.substringAfterLast('.', missingDelimiterValue = "")
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() && !it.contains('/') }
+            ?.let { return normalizeOfficeExtension(it) }
+
+        File(uri.path ?: "").extension.lowercase()
+            .takeIf { it.isNotBlank() }
+            ?.let { return normalizeOfficeExtension(it) }
+
+        val mime = hintMimeType
+            ?: runCatching { globalClass.contentResolver.getType(uri) }.getOrNull()
+        return mimeTypeToExtension(mime)
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        return try {
+            globalClass.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index >= 0) cursor.getString(index) else null
+                } else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun normalizeOfficeExtension(ext: String): String? {
+        return when (ext) {
+            "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp" -> ext
+            else -> null
+        }
+    }
+
+    private fun mimeTypeToExtension(mime: String?): String? {
+        if (mime.isNullOrBlank()) return null
+        return when (mime.lowercase()) {
+            "application/msword" -> "doc"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> "docx"
+            "application/vnd.ms-excel" -> "xls"
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> "xlsx"
+            "application/vnd.ms-powerpoint" -> "ppt"
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> "pptx"
+            "application/vnd.oasis.opendocument.text" -> "odt"
+            "application/vnd.oasis.opendocument.spreadsheet" -> "ods"
+            "application/vnd.oasis.opendocument.presentation" -> "odp"
+            else -> null
         }
     }
 
@@ -273,7 +359,7 @@ class DocumentConverter {
 
         val contentXml = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlnsoffice:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.2">
+            <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.2">
                 <office:body>
                     <office:text>
                         <text:p>$escapedText</text:p>
@@ -309,6 +395,10 @@ class DocumentConverter {
             .replace(">", "&gt;")
     }
 
+    /**
+     * Helvetica only supports WinAnsi. Sanitize and wrap long lines so conversion
+     * does not throw on Unicode / oversized content.
+     */
     private fun createPdfFromText(text: String, output: File) {
         val document = PDDocument()
         var page = PDPage(PDRectangle.A4)
@@ -319,7 +409,7 @@ class DocumentConverter {
         contentStream.setFont(PDType1Font.HELVETICA, 10f)
         contentStream.newLineAtOffset(50f, 750f)
 
-        val lines = text.split("\n")
+        val lines = text.split("\n").flatMap { wrapLine(sanitizeForWinAnsi(it)) }
         var yPos = 750f
         val lineHeight = 12f
 
@@ -335,7 +425,7 @@ class DocumentConverter {
                 contentStream.newLineAtOffset(50f, 750f)
                 yPos = 750f
             }
-            contentStream.showText(line)
+            contentStream.showText(line.ifEmpty { " " })
             contentStream.newLineAtOffset(0f, -lineHeight)
             yPos -= lineHeight
         }
@@ -344,5 +434,33 @@ class DocumentConverter {
         contentStream.close()
         document.save(FileOutputStream(output))
         document.close()
+    }
+
+    private fun sanitizeForWinAnsi(line: String): String {
+        val builder = StringBuilder(line.length)
+        for (ch in line) {
+            when {
+                ch == '\t' -> builder.append("    ")
+                ch == '\r' || ch == '\n' -> { /* skip */ }
+                ch.code in 0x20..0x7E -> builder.append(ch)
+                ch.code in 0xA0..0xFF -> builder.append(ch)
+                else -> builder.append('?')
+            }
+        }
+        // Strip any remaining control chars that WinAnsi rejects
+        return WIN_ANSI_SAFE.findAll(builder.toString()).joinToString("") { it.value }
+            .replace('\t', ' ')
+    }
+
+    private fun wrapLine(line: String): List<String> {
+        if (line.length <= MAX_CHARS_PER_LINE) return listOf(line)
+        val chunks = mutableListOf<String>()
+        var index = 0
+        while (index < line.length) {
+            val end = minOf(index + MAX_CHARS_PER_LINE, line.length)
+            chunks.add(line.substring(index, end))
+            index = end
+        }
+        return chunks
     }
 }

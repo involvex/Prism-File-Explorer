@@ -99,7 +99,7 @@
         </activity>
 
         <activity
-            android:name=".screen.viewer.text.TextViewActivity"
+            android:name=".screen.viewer.text.TextViewerActivity"
             android:exported="true"
             android:label="@string/text_viewer"
             android:theme="@style/Theme.FileExplorer"
@@ -113,6 +113,9 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:mimeType="text/*" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/xml" />
+                <data android:mimeType="application/javascript" />
                 <data android:scheme="file" />
                 <data android:scheme="content" />
             </intent-filter>

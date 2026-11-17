@@ -281,7 +281,10 @@ class LocalFileHolder(val file: File) : ContentHolder() {
 
         if (skipSupportedExtensions) return false
 
-        if (codeFileType.contains(extension) || editableFileType.contains(extension)) {
+        if (codeFileType.contains(extension)
+            || editableFileType.contains(extension)
+            || FileMimeType.isTextLikeMime(mimeType)
+        ) {
             globalClass.textEditorManager.openTextEditor(
                 this,
                 context

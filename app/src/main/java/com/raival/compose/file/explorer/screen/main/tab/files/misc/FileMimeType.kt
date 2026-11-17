@@ -65,8 +65,27 @@ object FileMimeType {
     @JvmField
     val editableFileType = arrayOf(
         "txt", "text", "log", "dsc", "apt", "rtf", "rtx", "md",
-        "csv", "tsv", "ini", "conf", "cfg", "nfo", "json", "xml"
+        "csv", "tsv", "ini", "conf", "cfg", "nfo", "json", "xml",
+        "properties", "pypirc", "toml", "env", "gitignore", "editorconfig",
+        "dockerfile", "gradle", "kts", "bat", "cmd", "ps1", "zsh", "bash",
+        "rc", "lst", "asc", "crt", "pem", "key", "htaccess", "npmrc", "yarnrc"
     )
+
+    /** MIME types that should open in the built-in text editor. */
+    @JvmField
+    val textLikeMimeTypes = arrayOf(
+        "application/json",
+        "application/xml",
+        "application/javascript",
+        "application/x-javascript",
+        "application/xhtml+xml"
+    )
+
+    fun isTextLikeMime(mimeType: String?): Boolean {
+        if (mimeType.isNullOrBlank()) return false
+        val lower = mimeType.lowercase()
+        return lower.startsWith("text/") || textLikeMimeTypes.any { it.equals(lower, ignoreCase = true) }
+    }
 
     @JvmField
     val imageFileType = arrayOf(

@@ -2,7 +2,7 @@
 
 > **Project**: A modern, feature-rich Android file manager built entirely with Kotlin and Jetpack Compose.
 > **Package**: `com.raival.compose.file.explorer`
-> **Current Version**: 1.3.2 (10)
+> **Current Version**: 1.4.1 (12)
 
 ---
 
