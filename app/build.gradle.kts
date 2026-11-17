@@ -53,6 +53,9 @@ android {
 
     lint {
         baseline = file("lint-baseline.xml")
+        // Avoid scanning all dependency sources during vital lint (POI/PdfBox);
+        // keeps lintVitalAnalyzeRelease under CI memory limits.
+        checkDependencies = false
     }
 
     packaging {
